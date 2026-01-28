@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת ניתוח חפירות ארכיאולוגיות 3D</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 100%;
+            height: calc(100vh - 40px);
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 0;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            background: #f8f9fa;
+            padding: 20px;
+            border-left: 3px solid #8B4513;
+            overflow-y: auto;
+        }
+
+        .upload-section {
+            margin-bottom: 20px;
+        }
+
+        .upload-section h3 {
+            color: #8B4513;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .upload-box {
+            border: 3px dashed #8B4513;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .upload-box:hover {
+            background: #fff8f0;
+            border-color: #D2691E;
+            transform: translateY(-2px);
+        }
+
+        .upload-box.loading {
+            background: #fffacd;
+            border-color: #ffd700;
+        }
+
+        .upload-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .model-list {
+            margin-top: 15px;
+        }
+
+        .model-item {
+            background: white;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border-right: 4px solid #8B4513;
+            transition: all 0.3s;
+        }
+
+        .model-item:hover {
+            transform: translateX(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .model-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .model-date {
+            font-size: 0.75em;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .model-controls {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .visibility-toggle {
+            cursor: pointer;
+            padding: 4px 8px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            font-size: 0.8em;
+            transition: all 0.3s;
+        }
+
+        .visibility-toggle.visible {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .delete-btn {
+            cursor: pointer;
+            padding: 4px 8px;
+            background: #f44336;
+            color: white;
+            border-radius: 5px;
+            font-size: 0.8em;
+            transition: all 0.3s;
+        }
+
+        .delete-btn:hover {
+            background: #d32f2f;
+        }
+
+        .controls {
+            padding: 15px;
+            background: #fff8f0;
+            border-bottom: 2px solid #8B4513;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .fullscreen-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .fullscreen-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(139, 69, 19, 0.3);
+        }
+
+        .fullscreen-controls {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 248, 240, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+        }
+
+        .fullscreen-controls.active {
+            display: block;
+        }
+
+        .close-fullscreen {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s;
+            z-index: 1001;
+            display: none;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .close-fullscreen.active {
+            display: block;
+        }
+
+        .close-fullscreen:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(244, 67, 54, 0.4);
+        }
+
+        .fullscreen-mode #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            border-radius: 0;
+            z-index: 999;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-group label {
+            display: block;
+            color: #8B4513;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #8B4513;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #8B4513;
+            cursor: pointer;
+        }
+
+        .viewer {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e8e8e8;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0E0E0 100%);
+            border-radius: 15px;
+            box-shadow: inset 0 4px 20px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .instruction {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .value-display {
+            display: inline-block;
+            background: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            margin-right: 8px;
+            font-weight: bold;
+            color: #8B4513;
+            font-size: 0.85em;
+        }
+
+        .loading-message {
+            background: #fffacd;
+            padding: 8px;
+            border-radius: 5px;
+            margin-top: 8px;
+            text-align: center;
+            font-size: 0.85em;
+            color: #8B4513;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏺 מערכת ניתוח חפירות ארכיאולוגיות 3D</h1>
+            <p>העלאת מודלים תלת-ממדיים וניתוח שכבות חפירה</p>
+        </div>
+
+        <div class="content">
+            <div class="sidebar">
+                <div class="upload-section">
+                    <h3>📁 העלאת מודלים</h3>
+                    <div class="upload-box" id="uploadBox" onclick="document.getElementById('fileInput').click()">
+                        <div class="upload-icon">📤</div>
+                        <div>לחץ להעלאת קובץ 3D</div>
+                        <small style="color: #666;">OBJ, STL, GLB, GLTF</small>
+                    </div>
+                    <div id="loadingMessage" class="loading-message" style="display: none;"></div>
+                    <input type="file" id="fileInput" class="file-input" accept=".obj,.stl,.glb,.gltf" multiple>
+                </div>
+
+                <div class="upload-section">
+                    <h3>📋 מודלים שהועלו</h3>
+                    <div id="modelList" class="model-list"></div>
+                </div>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <div class="controls">
+                    <button class="fullscreen-btn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
+                    
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutYValue">חיתוך אנכי: 0%</span>
+                            חיתוך מלמעלה למטה
+                        </label>
+                        <input type="range" id="cutY" class="slider" min="0" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutXValue">חיתוך רוחב: 0%</span>
+                            חיתוך משמאל לימין
+                        </label>
+                        <input type="range" id="cutX" class="slider" min="0" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutZValue">חיתוך עומק: 0%</span>
+                            חיתוך מאחורה לקדימה
+                        </label>
+                        <input type="range" id="cutZ" class="slider" min="0" max="100" value="0">
+                    </div>
+                </div>
+
+                <button class="close-fullscreen" onclick="toggleFullscreen()">✕ סגור מסך מלא</button>
+                
+                <div class="fullscreen-controls" id="fullscreenControls">
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutYValueFS">חיתוך אנכי: 0%</span>
+                            חיתוך מלמעלה למטה
+                        </label>
+                        <input type="range" id="cutYFS" class="slider" min="0" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutXValueFS">חיתוך רוחב: 0%</span>
+                            חיתוך משמאל לימין
+                        </label>
+                        <input type="range" id="cutXFS" class="slider" min="0" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutZValueFS">חיתוך עומק: 0%</span>
+                            חיתוך מאחורה לקדימה
+                        </label>
+                        <input type="range" id="cutZFS" class="slider" min="0" max="100" value="0">
+                    </div>
+                </div>
+
+                <div class="viewer" style="flex: 1;">
+                    <div id="canvas-container">
+                        <div class="instruction">
+                            <div style="font-size: 3.5em; margin-bottom: 15px;">🏛️</div>
+                            <div>העלה מודלים תלת-ממדיים כדי להתחיל</div>
+                            <div style="font-size: 0.75em; margin-top: 8px; color: #999;">
+                                תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer;
+        let models = [];
+        let modelCounter = 0;
+        let globalBoundingBox = null;
+        
+        // משתנים לסיבוב עכבר
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let cameraRotation = { horizontal: 45, vertical: 30 };
+        let cameraDistance = 8;
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            const instruction = container.querySelector('.instruction');
+            if (instruction) instruction.remove();
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+            updateCameraPosition();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            scene.add(directionalLight);
+
+            const floorGeometry = new THREE.PlaneGeometry(20, 20);
+            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xD2B48C, side: THREE.DoubleSide });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = Math.PI / 2;
+            floor.position.y = -2;
+            scene.add(floor);
+
+            setupMouseControls();
+            animate();
+        }
+
+        function updateCameraPosition() {
+            const horizontalAngle = (cameraRotation.horizontal * Math.PI) / 180;
+            const verticalAngle = (cameraRotation.vertical * Math.PI) / 180;
+            
+            camera.position.x = Math.sin(horizontalAngle) * Math.cos(verticalAngle) * cameraDistance;
+            camera.position.y = Math.sin(verticalAngle) * cameraDistance;
+            camera.position.z = Math.cos(horizontalAngle) * Math.cos(verticalAngle) * cameraDistance;
+            camera.lookAt(0, 0, 0);
+        }
+
+        function setupMouseControls() {
+            const container = document.getElementById('canvas-container');
+            
+            container.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+                
+                cameraRotation.horizontal -= deltaX * 0.5;
+                cameraRotation.vertical += deltaY * 0.5;
+                
+                // הגבל זווית אנכית
+                cameraRotation.vertical = Math.max(-89, Math.min(89, cameraRotation.vertical));
+                
+                updateCameraPosition();
+                
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            container.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            container.addEventListener('mouseleave', () => {
+                isDragging = false;
+            });
+
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                
+                const zoomSpeed = 0.001;
+                cameraDistance += e.deltaY * zoomSpeed * cameraDistance;
+                
+                // הגבל מרחק מצלמה
+                cameraDistance = Math.max(1, Math.min(50, cameraDistance));
+                
+                updateCameraPosition();
+            }, { passive: false });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function loadOBJFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    try {
+                        const geometry = parseOBJ(text);
+                        if (geometry && geometry.attributes.position.count > 0) {
+                            resolve(geometry);
+                        } else {
+                            reject(new Error('הקובץ ריק או לא תקין'));
+                        }
+                    } catch (err) {
+                        reject(new Error('שגיאה בניתוח הקובץ: ' + err.message));
+                    }
+                };
+                reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+                reader.readAsText(file);
+            });
+        }
+
+        function parseOBJ(text) {
+            const vertices = [];
+            const faces = [];
+            const lines = text.split('\n');
+            let vertexCount = 0;
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('v ')) {
+                    const parts = line.split(/\s+/);
+                    if (parts.length >= 4) {
+                        const x = parseFloat(parts[1]);
+                        const y = parseFloat(parts[2]);
+                        const z = parseFloat(parts[3]);
+                        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                            vertices.push(x, y, z);
+                            vertexCount++;
+                        }
+                    }
+                }
+            }
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('f ')) {
+                    const parts = line.split(/\s+/).slice(1);
+                    if (parts.length < 3) continue;
+                    
+                    const faceIndices = [];
+                    let validFace = true;
+                    
+                    for (let part of parts) {
+                        const idx = parseInt(part.split('/')[0]);
+                        let realIdx = idx > 0 ? idx - 1 : vertexCount + idx;
+                        
+                        if (realIdx < 0 || realIdx >= vertexCount) {
+                            validFace = false;
+                            break;
+                        }
+                        faceIndices.push(realIdx);
+                    }
+                    
+                    if (validFace && faceIndices.length >= 3) {
+                        for (let i = 1; i < faceIndices.length - 1; i++) {
+                            faces.push(faceIndices[0], faceIndices[i], faceIndices[i + 1]);
+                        }
+                    }
+                }
+            }
+
+            if (vertices.length === 0) {
+                throw new Error('לא נמצאו vertices בקובץ');
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            
+            if (faces.length > 0) {
+                geometry.setIndex(faces);
+            }
+            
+            geometry.computeVertexNormals();
+            return geometry;
+        }
+
+        function loadSTLFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const geometry = parseSTL(e.target.result);
+                        if (geometry) {
+                            resolve(geometry);
+                        } else {
+                            reject(new Error('Failed to parse STL'));
+                        }
+                    } catch (err) {
+                        reject(new Error('שגיאה בניתוח STL: ' + err.message));
+                    }
+                };
+                reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function parseSTL(buffer) {
+            const view = new DataView(buffer);
+            const header = new Uint8Array(buffer, 0, 5);
+            const headerText = String.fromCharCode.apply(null, header);
+            const isASCII = headerText === 'solid';
+            
+            if (isASCII) {
+                const text = new TextDecoder().decode(buffer);
+                return parseSTLASCII(text);
+            } else {
+                return parseSTLBinary(view);
+            }
+        }
+
+        function parseSTLBinary(view) {
+            if (view.byteLength < 84) {
+                throw new Error('קובץ STL קצר מדי');
+            }
+            
+            const triangles = view.getUint32(80, true);
+            const expectedLength = 84 + triangles * 50;
+            
+            if (view.byteLength < expectedLength) {
+                throw new Error('גודל קובץ STL לא תואם');
+            }
+            
+            const vertices = [];
+
+            for (let i = 0; i < triangles; i++) {
+                const offset = 84 + i * 50;
+                
+                for (let j = 0; j < 3; j++) {
+                    const x = view.getFloat32(offset + 12 + j * 12, true);
+                    const y = view.getFloat32(offset + 16 + j * 12, true);
+                    const z = view.getFloat32(offset + 20 + j * 12, true);
+                    
+                    if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                        vertices.push(x, y, z);
+                    }
+                }
+            }
+
+            if (vertices.length === 0) {
+                throw new Error('לא נמצאו vertices תקינים');
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.computeVertexNormals();
+            return geometry;
+        }
+
+        function parseSTLASCII(text) {
+            const vertices = [];
+            const lines = text.split('\n');
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('vertex')) {
+                    const parts = line.split(/\s+/);
+                    if (parts.length >= 4) {
+                        const x = parseFloat(parts[1]);
+                        const y = parseFloat(parts[2]);
+                        const z = parseFloat(parts[3]);
+                        
+                        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                            vertices.push(x, y, z);
+                        }
+                    }
+                }
+            }
+
+            if (vertices.length === 0) {
+                throw new Error('לא נמצאו vertices בקובץ');
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.computeVertexNormals();
+            return geometry;
+        }
+
+        function calculateGlobalBoundingBox() {
+            globalBoundingBox = new THREE.Box3();
+            
+            models.forEach(model => {
+                if (model.visible) {
+                    const modelBox = new THREE.Box3().setFromObject(model.group);
+                    globalBoundingBox.union(modelBox);
+                }
+            });
+        }
+
+        async function addModelFromFile(file, color) {
+            try {
+                let geometry;
+                const extension = file.name.split('.').pop().toLowerCase();
+                
+                if (extension === 'obj') {
+                    geometry = await loadOBJFile(file);
+                } else if (extension === 'stl') {
+                    geometry = await loadSTLFile(file);
+                } else {
+                    throw new Error('פורמט קובץ לא נתמך. השתמש ב-OBJ או STL');
+                }
+
+                if (!geometry || !geometry.attributes.position) {
+                    throw new Error('לא הצלחתי לטעון את הגיאומטריה');
+                }
+
+                geometry.center();
+                geometry.computeBoundingBox();
+                const box = geometry.boundingBox;
+                const size = new THREE.Vector3();
+                box.getSize(size);
+                
+                const maxDim = Math.max(size.x, size.y, size.z);
+                
+                if (maxDim > 0) {
+                    const targetSize = 4;
+                    const scale = targetSize / maxDim;
+                    geometry.scale(scale, scale, scale);
+                    geometry.computeBoundingBox();
+                }
+
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    transparent: true,
+                    opacity: 0.85,
+                    side: THREE.DoubleSide,
+                    flatShading: false
+                });
+                
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.y = 0;
+                
+                const group = new THREE.Group();
+                group.add(mesh);
+                scene.add(group);
+
+                const modelData = {
+                    id: modelCounter++,
+                    name: file.name,
+                    date: new Date().toLocaleString('he-IL'),
+                    group: group,
+                    mesh: mesh,
+                    visible: true,
+                    originalGeometry: geometry.clone(),
+                    color: color
+                };
+
+                models.push(modelData);
+                updateModelList();
+                calculateGlobalBoundingBox();
+                
+                if (models.length === 1) {
+                    adjustCameraToModel();
+                }
+                
+                return modelData;
+            } catch (error) {
+                console.error('Error loading model:', error);
+                throw error;
+            }
+        }
+
+        function adjustCameraToModel() {
+            if (models.length === 0) return;
+            
+            calculateGlobalBoundingBox();
+            
+            const size = new THREE.Vector3();
+            globalBoundingBox.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            cameraDistance = maxDim * 2;
+            
+            updateCameraPosition();
+        }
+
+        function updateModelList() {
+            const listContainer = document.getElementById('modelList');
+            listContainer.innerHTML = '';
+
+            models.forEach(model => {
+                const item = document.createElement('div');
+                item.className = 'model-item';
+                item.innerHTML = `
+                    <div>
+                        <div class="model-name">${model.name}</div>
+                        <div class="model-date">${model.date}</div>
+                        <div class="model-controls">
+                            <span class="visibility-toggle ${model.visible ? 'visible' : ''}" onclick="toggleVisibility(${model.id})">
+                                ${model.visible ? '👁️' : '🚫'}
+                            </span>
+                            <span class="visibility-toggle" onclick="rotateModelY(${model.id})">🔄Y</span>
+                            <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">⭕Z</span>
+                            <span class="visibility-toggle" onclick="flipModel(${model.id})">↕️X</span>
+                            <span class="delete-btn" onclick="deleteModel(${model.id})">🗑️</span>
+                        </div>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function toggleVisibility(id) {
+            const model = models.find(m => m.id === id);
+            if (model) {
+                model.visible = !model.visible;
+                model.group.visible = model.visible;
+                calculateGlobalBoundingBox();
+                applyCuts();
+                updateModelList();
+            }
+        }
+
+        function rotateModelY(id) {
+            const model = models.find(m => m.id === id);
+            if (model) {
+                model.group.rotation.y += Math.PI / 2;
+                calculateGlobalBoundingBox();
+                applyCuts();
+            }
+        }
+
+        function rotateModelZ(id) {
+            const model = models.find(m => m.id === id);
+            if (model) {
+                model.group.rotation.z += Math.PI / 2;
+                calculateGlobalBoundingBox();
+                applyCuts();
+            }
+        }
+
+        function flipModel(id) {
+            const model = models.find(m => m.id === id);
+            if (model) {
+                model.group.rotation.x += Math.PI;
+                calculateGlobalBoundingBox();
+                applyCuts();
+            }
+        }
+
+        function deleteModel(id) {
+            const index = models.findIndex(m => m.id === id);
+            if (index !== -1) {
+                scene.remove(models[index].group);
+                models.splice(index, 1);
+                calculateGlobalBoundingBox();
+                applyCuts();
+                updateModelList();
+            }
+        }
+
+        function applyCuts() {
+            if (!globalBoundingBox || models.length === 0) return;
+
+            const cutYRatio = parseFloat(document.getElementById('cutY').value) / 100;
+            const cutXRatio = parseFloat(document.getElementById('cutX').value) / 100;
+            const cutZRatio = parseFloat(document.getElementById('cutZ').value) / 100;
+
+            const minY = globalBoundingBox.min.y;
+            const maxY = globalBoundingBox.max.y;
+            const cutYWorld = maxY - (maxY - minY) * cutYRatio;
+
+            const minX = globalBoundingBox.min.x;
+            const maxX = globalBoundingBox.max.x;
+            const cutXWorld = minX + (maxX - minX) * cutXRatio;
+
+            const minZ = globalBoundingBox.min.z;
+            const maxZ = globalBoundingBox.max.z;
+            const cutZWorld = minZ + (maxZ - minZ) * cutZRatio;
+
+            models.forEach(model => {
+                if (!model.visible) return;
+
+                const originalGeo = model.originalGeometry;
+                const positions = originalGeo.attributes.position.array;
+                
+                const worldMatrix = model.group.matrixWorld;
+                
+                const newPositions = [];
+                const newIndices = [];
+                
+                if (originalGeo.index) {
+                    const indices = originalGeo.index.array;
+                    for (let i = 0; i < indices.length; i += 3) {
+                        const i0 = indices[i] * 3;
+                        const i1 = indices[i + 1] * 3;
+                        const i2 = indices[i + 2] * 3;
+                        
+                        const v0 = new THREE.Vector3(positions[i0], positions[i0 + 1], positions[i0 + 2]);
+                        const v1 = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
+                        const v2 = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
+                        
+                        v0.applyMatrix4(worldMatrix);
+                        v1.applyMatrix4(worldMatrix);
+                        v2.applyMatrix4(worldMatrix);
+                        
+                        if (v0.y <= cutYWorld && v1.y <= cutYWorld && v2.y <= cutYWorld &&
+                            v0.x >= cutXWorld && v1.x >= cutXWorld && v2.x >= cutXWorld &&
+                            v0.z >= cutZWorld && v1.z >= cutZWorld && v2.z >= cutZWorld) {
+                            
+                            const baseIdx = newPositions.length / 3;
+                            newPositions.push(
+                                positions[i0], positions[i0 + 1], positions[i0 + 2],
+                                positions[i1], positions[i1 + 1], positions[i1 + 2],
+                                positions[i2], positions[i2 + 1], positions[i2 + 2]
+                            );
+                            newIndices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+                        }
+                    }
+                } else {
+                    for (let i = 0; i < positions.length; i += 9) {
+                        const v0 = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
+                        const v1 = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
+                        const v2 = new THREE.Vector3(positions[i + 6], positions[i + 7], positions[i + 8]);
+                        
+                        v0.applyMatrix4(worldMatrix);
+                        v1.applyMatrix4(worldMatrix);
+                        v2.applyMatrix4(worldMatrix);
+                        
+                        if (v0.y <= cutYWorld && v1.y <= cutYWorld && v2.y <= cutYWorld &&
+                            v0.x >= cutXWorld && v1.x >= cutXWorld && v2.x >= cutXWorld &&
+                            v0.z >= cutZWorld && v1.z >= cutZWorld && v2.z >= cutZWorld) {
+                            
+                            for (let j = 0; j < 9; j++) {
+                                newPositions.push(positions[i + j]);
+                            }
+                        }
+                    }
+                }
+                
+                if (newPositions.length > 0) {
+                    const newGeometry = new THREE.BufferGeometry();
+                    newGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
+                    if (newIndices.length > 0) {
+                        newGeometry.setIndex(newIndices);
+                    }
+                    newGeometry.computeVertexNormals();
+                    
+                    model.mesh.geometry.dispose();
+                    model.mesh.geometry = newGeometry;
+                    model.mesh.visible = true;
+                } else {
+                    model.mesh.visible = false;
+                }
+            });
+        }
+
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const files = e.target.files;
+            const uploadBox = document.getElementById('uploadBox');
+            const loadingMsg = document.getElementById('loadingMessage');
+            
+            if (files.length === 0) return;
+            
+            if (!scene) initThreeJS();
+            
+            uploadBox.classList.add('loading');
+            loadingMsg.style.display = 'block';
+            loadingMsg.textContent = 'טוען מודלים...';
+            
+            const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                try {
+                    loadingMsg.textContent = `טוען ${file.name}...`;
+                    await addModelFromFile(file, colors[models.length % colors.length]);
+                } catch (error) {
+                    alert(`שגיאה בטעינת ${file.name}: ${error.message}`);
+                }
+            }
+            
+            uploadBox.classList.remove('loading');
+            loadingMsg.style.display = 'none';
+            e.target.value = '';
+        });
+
+        document.getElementById('cutY').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${value}%`;
+            applyCuts();
+        });
+
+        document.getElementById('cutX').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${value}%`;
+            applyCuts();
+        });
+
+        document.getElementById('cutZ').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('cutZValue').textContent = `חיתוך עומק: ${value}%`;
+            applyCuts();
+        });
+
+        // Fullscreen controls sync
+        document.getElementById('cutYFS').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('cutYValueFS').textContent = `חיתוך אנכי: ${value}%`;
+            document.getElementById('cutY').value = value;
+            document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${value}%`;
+            applyCuts();
+        });
+
+        document.getElementById('cutXFS').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('cutXValueFS').textContent = `חיתוך רוחב: ${value}%`;
+            document.getElementById('cutX').value = value;
+            document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${value}%`;
+            applyCuts();
+        });
+
+        document.getElementById('cutZFS').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('cutZValueFS').textContent = `חיתוך עומק: ${value}%`;
+            document.getElementById('cutZ').value = value;
+            document.getElementById('cutZValue').textContent = `חיתוך עומק: ${value}%`;
+            applyCuts();
+        });
+
+        function toggleFullscreen() {
+            const body = document.body;
+            const controls = document.getElementById('fullscreenControls');
+            const closeBtn = document.querySelector('.close-fullscreen');
+            
+            body.classList.toggle('fullscreen-mode');
+            controls.classList.toggle('active');
+            closeBtn.classList.toggle('active');
+            
+            // סנכרון ערכים
+            if (body.classList.contains('fullscreen-mode')) {
+                document.getElementById('cutYFS').value = document.getElementById('cutY').value;
+                document.getElementById('cutXFS').value = document.getElementById('cutX').value;
+                document.getElementById('cutZFS').value = document.getElementById('cutZ').value;
+                
+                document.getElementById('cutYValueFS').textContent = document.getElementById('cutYValue').textContent;
+                document.getElementById('cutXValueFS').textContent = document.getElementById('cutXValue').textContent;
+                document.getElementById('cutZValueFS').textContent = document.getElementById('cutZValue').textContent;
+            }
+            
+            // עדכון גודל renderer
+            setTimeout(() => {
+                if (renderer && camera) {
+                    const container = document.getElementById('canvas-container');
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                }
+            }, 100);
+        }
+
+        window.addEventListener('resize', () => {
+            if (renderer && camera) {
+                const container = document.getElementById('canvas-container');
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        });
+    </script>
+</body>
+</html>
