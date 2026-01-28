@@ -116,68 +116,76 @@ body {
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.model-name {
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 5px;
-    font-size: 0.9em;
+.model-item-header {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-bottom: 5px;
 }
 
-.color-indicator {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
+.model-color-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
     border: 2px solid #666;
     flex-shrink: 0;
 }
 
-.color-name {
-    font-size: 0.75em;
-    color: #666;
-    font-weight: normal;
+.model-name {
+    font-weight: bold;
+    color: #333;
+    font-size: 0.9em;
 }
 
-.model-date {
+.model-item-color {
     font-size: 0.75em;
     color: #666;
     margin-bottom: 8px;
 }
 
-.model-controls {
+.model-item-controls {
     display: flex;
     gap: 5px;
     flex-wrap: wrap;
 }
 
-.visibility-toggle {
+.model-btn {
     cursor: pointer;
     padding: 4px 8px;
     background: #e0e0e0;
+    border: none;
     border-radius: 5px;
     font-size: 0.8em;
     transition: all 0.3s;
 }
 
-.visibility-toggle.visible {
-    background: #4CAF50;
-    color: white;
+.model-btn:hover {
+    background: #ccc;
+    transform: scale(1.05);
 }
 
-.delete-btn {
-    cursor: pointer;
-    padding: 4px 8px;
+.model-btn.delete-btn {
     background: #f44336;
     color: white;
-    border-radius: 5px;
-    font-size: 0.8em;
-    transition: all 0.3s;
 }
 
-.delete-btn:hover {
+.model-btn.delete-btn:hover {
     background: #d32f2f;
+}
+
+.model-btn.align-btn {
+    background: #2196F3;
+    color: white;
+}
+
+.model-btn.align-btn:hover {
+    background: #1976D2;
+}
+
+.model-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .controls {
@@ -221,9 +229,11 @@ body {
     z-index: 1000;
     max-width: 300px;
     backdrop-filter: blur(10px);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
-.fullscreen-controls.active {
+.fullscreen-controls.visible {
     display: block;
 }
 
@@ -245,7 +255,7 @@ body {
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
-.close-fullscreen.active {
+.fullscreen-mode .close-fullscreen {
     display: block;
 }
 
@@ -301,6 +311,37 @@ body {
     border-radius: 50%;
     background: #8B4513;
     cursor: pointer;
+    border: none;
+}
+
+.section-divider {
+    margin: 15px 0 10px 0;
+    padding: 8px;
+    background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+    color: white;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.reset-rotation-btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9em;
+    transition: all 0.3s;
+    margin-top: 10px;
+}
+
+.reset-rotation-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4);
 }
 
 .viewer {
@@ -555,6 +596,53 @@ body {
     transform: none;
 }
 
+/* מדידת מרחק */
+.measure-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    transition: all 0.3s;
+}
+
+.measure-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(156, 39, 176, 0.4);
+}
+
+.measure-btn.active {
+    background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
+    animation: pulse 1s infinite;
+}
+
+.measure-info {
+    background: #f3e5f5;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+#measureStatus {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.measure-distance {
+    background: #9C27B0;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
 /* Utility classes for inline style replacements */
 .text-muted {
     color: #666;
@@ -592,24 +680,24 @@ body {
 
 /* Fullscreen mode responsive styles */
 @media (max-width: 1200px) {
-    .fullscreen-mode .fullscreen-controls {
+    .fullscreen-controls {
         max-width: 250px;
         padding: 15px;
     }
 
-    .fullscreen-mode .control-group {
+    .control-group {
         margin-bottom: 10px;
     }
 
-    .fullscreen-mode .control-group label {
+    .control-group label {
         font-size: 0.8em;
     }
 
-    .fullscreen-mode .slider {
+    .slider {
         height: 5px;
     }
 
-    .fullscreen-mode .value-display {
+    .value-display {
         font-size: 0.75em;
         padding: 3px 8px;
     }
@@ -650,37 +738,174 @@ body {
 }
 
 @media (max-width: 768px) {
-    .fullscreen-mode .fullscreen-controls {
+    .fullscreen-controls {
         max-width: 180px;
         padding: 10px;
         top: 10px;
         right: 10px;
     }
 
-    .fullscreen-mode .control-group {
+    .control-group {
         margin-bottom: 6px;
     }
 
-    .fullscreen-mode .control-group label {
+    .control-group label {
         font-size: 0.7em;
     }
 
-    .fullscreen-mode .slider {
+    .slider {
         height: 3px;
     }
 
-    .fullscreen-mode .slider::-webkit-slider-thumb {
+    .slider::-webkit-slider-thumb {
         width: 12px;
         height: 12px;
     }
 
-    .fullscreen-mode .slider::-moz-range-thumb {
+    .slider::-moz-range-thumb {
         width: 12px;
         height: 12px;
     }
 
-    .fullscreen-mode .value-display {
+    .value-display {
         font-size: 0.65em;
         padding: 2px 5px;
     }
+}
+
+/* סגנונות לכיול */
+.calibrate-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #FF5722 0%, #E64A19 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    transition: all 0.3s;
+}
+
+.calibrate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 87, 34, 0.4);
+}
+
+.calibrate-btn.active {
+    background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
+    animation: pulse 1s infinite;
+}
+
+.calibrate-info {
+    background: #fff3e0;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+#calibrateStatus {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.calibrate-input-group {
+    margin-top: 10px;
+}
+
+.calibrate-input-group label {
+    display: block;
+    font-size: 0.85em;
+    color: #8B4513;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.calibrate-input {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #FF5722;
+    border-radius: 6px;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+}
+
+.calibrate-input:focus {
+    outline: none;
+    border-color: #E64A19;
+    box-shadow: 0 0 5px rgba(255, 87, 34, 0.3);
+}
+
+.calibrate-apply-btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9em;
+    transition: all 0.3s;
+}
+
+.calibrate-apply-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.calibrate-apply-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.calibrate-result {
+    margin-top: 10px;
+    padding: 10px;
+    background: #e8f5e9;
+    border-radius: 6px;
+    font-size: 0.85em;
+    color: #2E7D32;
+}
+
+.calibrate-display {
+    background: #e8f5e9;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 10px;
+    border: 2px solid #4CAF50;
+}
+
+.calibrate-display strong {
+    display: block;
+    color: #2E7D32;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+#calibrateFactorText {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 10px;
+    font-family: monospace;
+}
+
+.calibrate-reset-btn {
+    width: 100%;
+    padding: 8px;
+    background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.85em;
+    transition: all 0.3s;
+}
+
+.calibrate-reset-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
 }
