@@ -4,615 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת ניתוח חפירות ארכיאולוגיות 3D</title>
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 100%;
-            height: calc(100vh - 40px);
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
-            color: white;
-            padding: 20px 30px;
-            text-align: center;
-            flex-shrink: 0;
-        }
-
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 5px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .header p {
-            font-size: 0.95em;
-            opacity: 0.9;
-        }
-
-        .content {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 0;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        .sidebar {
-            background: #f8f9fa;
-            padding: 20px;
-            border-left: 3px solid #8B4513;
-            overflow-y: auto;
-        }
-
-        .upload-section {
-            margin-bottom: 20px;
-        }
-
-        .upload-section h3 {
-            color: #8B4513;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-
-        .upload-box {
-            border: 3px dashed #8B4513;
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            background: white;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 10px;
-        }
-
-        .upload-box:hover {
-            background: #fff8f0;
-            border-color: #D2691E;
-            transform: translateY(-2px);
-        }
-
-        .upload-box.loading {
-            background: #fffacd;
-            border-color: #ffd700;
-        }
-
-        .upload-icon {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .model-list {
-            margin-top: 15px;
-        }
-
-        .model-item {
-            background: white;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            border-right: 4px solid #8B4513;
-            transition: all 0.3s;
-        }
-
-        .model-item:hover {
-            transform: translateX(-5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .model-name {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 5px;
-            font-size: 0.9em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .color-indicator {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-            border: 2px solid #666;
-            flex-shrink: 0;
-        }
-
-        .color-name {
-            font-size: 0.75em;
-            color: #666;
-            font-weight: normal;
-        }
-
-        .model-date {
-            font-size: 0.75em;
-            color: #666;
-            margin-bottom: 8px;
-        }
-
-        .model-controls {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-
-        .visibility-toggle {
-            cursor: pointer;
-            padding: 4px 8px;
-            background: #e0e0e0;
-            border-radius: 5px;
-            font-size: 0.8em;
-            transition: all 0.3s;
-        }
-
-        .visibility-toggle.visible {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .delete-btn {
-            cursor: pointer;
-            padding: 4px 8px;
-            background: #f44336;
-            color: white;
-            border-radius: 5px;
-            font-size: 0.8em;
-            transition: all 0.3s;
-        }
-
-        .delete-btn:hover {
-            background: #d32f2f;
-        }
-
-        .controls {
-            padding: 15px;
-            background: #fff8f0;
-            border-bottom: 2px solid #8B4513;
-            flex-shrink: 0;
-            position: relative;
-        }
-
-        .fullscreen-btn {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.9em;
-            font-weight: bold;
-            transition: all 0.3s;
-            z-index: 10;
-        }
-
-        .fullscreen-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(139, 69, 19, 0.3);
-        }
-
-        .fullscreen-controls {
-            display: none;
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 248, 240, 0.95);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            z-index: 1000;
-            max-width: 300px;
-            backdrop-filter: blur(10px);
-        }
-
-        .fullscreen-controls.active {
-            display: block;
-        }
-
-        .close-fullscreen {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1em;
-            font-weight: bold;
-            transition: all 0.3s;
-            z-index: 1001;
-            display: none;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-        }
-
-        .close-fullscreen.active {
-            display: block;
-        }
-
-        .close-fullscreen:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(244, 67, 54, 0.4);
-        }
-
-        .fullscreen-mode #canvas-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            border-radius: 0;
-            z-index: 999;
-        }
-
-        .control-group {
-            margin-bottom: 12px;
-        }
-
-        .control-group label {
-            display: block;
-            color: #8B4513;
-            font-weight: bold;
-            margin-bottom: 5px;
-            font-size: 0.9em;
-        }
-
-        .slider {
-            width: 100%;
-            height: 6px;
-            border-radius: 5px;
-            background: #ddd;
-            outline: none;
-            -webkit-appearance: none;
-        }
-
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #8B4513;
-            cursor: pointer;
-        }
-
-        .slider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #8B4513;
-            cursor: pointer;
-        }
-
-        .viewer {
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #e8e8e8;
-            overflow: hidden;
-        }
-
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, #87CEEB 0%, #E0E0E0 100%);
-            border-radius: 15px;
-            box-shadow: inset 0 4px 20px rgba(0,0,0,0.2);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .instruction {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #666;
-            font-size: 1.1em;
-        }
-
-        .value-display {
-            display: inline-block;
-            background: white;
-            padding: 4px 12px;
-            border-radius: 15px;
-            margin-right: 8px;
-            font-weight: bold;
-            color: #8B4513;
-            font-size: 0.85em;
-        }
-
-        .loading-message {
-            background: #fffacd;
-            padding: 8px;
-            border-radius: 5px;
-            margin-top: 8px;
-            text-align: center;
-            font-size: 0.85em;
-            color: #8B4513;
-        }
-
-        .format-badge {
-            display: inline-block;
-            background: #4CAF50;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 0.7em;
-            margin-left: 5px;
-        }
-
-        .align-btn {
-            cursor: pointer;
-            padding: 4px 8px;
-            background: #2196F3;
-            color: white;
-            border-radius: 5px;
-            font-size: 0.8em;
-            transition: all 0.3s;
-        }
-
-        .align-btn:hover {
-            background: #1976D2;
-        }
-
-        .align-btn.active {
-            background: #FF9800;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        .point-marker {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: #FF4444;
-            border: 2px solid white;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 100;
-            box-shadow: 0 0 10px rgba(255, 68, 68, 0.8);
-        }
-
-        .point-marker::after {
-            content: attr(data-label);
-            position: absolute;
-            top: -25px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 10px;
-            white-space: nowrap;
-        }
-
-        #canvas-container {
-            cursor: default;
-        }
-
-        #canvas-container.align-mode {
-            cursor: crosshair;
-        }
-
-        #canvas-container.align-mode:hover {
-            cursor: crosshair;
-        }
-
-        .align-section {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 10px;
-        }
-
-        .align-section h4 {
-            color: #1976D2;
-            margin-bottom: 10px;
-            font-size: 0.95em;
-        }
-
-        .align-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .align-info {
-            background: white;
-            padding: 8px;
-            border-radius: 5px;
-            font-size: 0.8em;
-            color: #666;
-        }
-
-        .point-counter {
-            background: #4CAF50;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 0.85em;
-            margin: 5px 0;
-        }
-
-        .align-execute-btn {
-            padding: 10px;
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
-            font-size: 0.85em;
-        }
-
-        .align-execute-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
-        }
-
-        .align-execute-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .align-action-btn {
-            padding: 8px;
-            background: #FF9800;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
-            font-size: 0.8em;
-        }
-
-        .align-action-btn:hover {
-            background: #F57C00;
-        }
-
-        .cancel-btn {
-            background: #f44336;
-        }
-
-        .cancel-btn:hover {
-            background: #d32f2f;
-        }
-
-        @media (max-width: 1200px) {
-            .fullscreen-mode .fullscreen-controls {
-                max-width: 250px;
-                padding: 15px;
-            }
-
-            .fullscreen-mode .control-group {
-                margin-bottom: 10px;
-            }
-
-            .fullscreen-mode .control-group label {
-                font-size: 0.8em;
-            }
-
-            .fullscreen-mode .slider {
-                height: 5px;
-            }
-
-            .fullscreen-mode .value-display {
-                font-size: 0.75em;
-                padding: 3px 8px;
-            }
-        }
-
-        .fullscreen-mode .fullscreen-controls {
-            max-width: 220px;
-            padding: 12px;
-        }
-
-        .fullscreen-mode .control-group {
-            margin-bottom: 8px;
-        }
-
-        .fullscreen-mode .control-group label {
-            font-size: 0.75em;
-            margin-bottom: 3px;
-        }
-
-        .fullscreen-mode .slider {
-            height: 4px;
-        }
-
-        .fullscreen-mode .slider::-webkit-slider-thumb {
-            width: 14px;
-            height: 14px;
-        }
-
-        .fullscreen-mode .slider::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-        }
-
-        .fullscreen-mode .value-display {
-            font-size: 0.7em;
-            padding: 2px 6px;
-            margin-right: 5px;
-        }
-
-        @media (max-width: 768px) {
-            .fullscreen-mode .fullscreen-controls {
-                max-width: 180px;
-                padding: 10px;
-                top: 10px;
-                right: 10px;
-            }
-
-            .fullscreen-mode .control-group {
-                margin-bottom: 6px;
-            }
-
-            .fullscreen-mode .control-group label {
-                font-size: 0.7em;
-            }
-
-            .fullscreen-mode .slider {
-                height: 3px;
-            }
-
-            .fullscreen-mode .slider::-webkit-slider-thumb {
-                width: 12px;
-                height: 12px;
-            }
-
-            .fullscreen-mode .slider::-moz-range-thumb {
-                width: 12px;
-                height: 12px;
-            }
-
-            .fullscreen-mode .value-display {
-                font-size: 0.65em;
-                padding: 2px 5px;
-            }
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -628,12 +21,12 @@
                     <div class="upload-box" id="uploadBox" onclick="document.getElementById('fileInput').click()">
                         <div class="upload-icon">📤</div>
                         <div>לחץ להעלאת קובץ 3D</div>
-                        <small style="color: #666;">
+                        <small class="text-muted">
                             OBJ, STL, GLB, GLTF
                             <span class="format-badge">NEW</span>
                         </small>
                     </div>
-                    <div id="loadingMessage" class="loading-message" style="display: none;"></div>
+                    <div id="loadingMessage" class="loading-message hidden"></div>
                     <input type="file" id="fileInput" class="file-input" accept=".obj,.stl,.glb,.gltf" multiple>
                 </div>
 
@@ -642,7 +35,22 @@
                     <div id="modelList" class="model-list"></div>
                 </div>
 
-                <div class="upload-section" id="alignSection" style="display: none;">
+                <div class="upload-section hidden" id="downloadSection">
+                    <h3>📥 הורדת מודל משולב</h3>
+                    <div class="download-box">
+                        <select id="exportFormat" class="format-select">
+                            <option value="stl">STL</option>
+                            <option value="obj">OBJ</option>
+                            <option value="glb">GLB</option>
+                            <option value="gltf">GLTF</option>
+                        </select>
+                        <button class="download-btn" onclick="downloadCombinedModel()">
+                            📥 הורד מודל משולב
+                        </button>
+                    </div>
+                </div>
+
+                <div class="upload-section hidden" id="alignSection">
                     <div class="align-section">
                         <h4>🎯 יישור מודלים גמיש</h4>
                         <div class="align-controls">
@@ -652,10 +60,10 @@
                             <div class="point-counter" id="pointCounter">
                                 מודל 1: 0 נקודות | מודל 2: 0 נקודות
                             </div>
-                            <button class="align-action-btn" id="finishModelBtn" onclick="finishCurrentModel()" style="display: none;">
+                            <button class="align-action-btn hidden" id="finishModelBtn" onclick="finishCurrentModel()">
                                 סיים מודל נוכחי →
                             </button>
-                            <button class="align-action-btn" id="undoPointBtn" onclick="undoLastPoint()" style="display: none;">
+                            <button class="align-action-btn hidden" id="undoPointBtn" onclick="undoLastPoint()">
                                 ↶ מחק נקודה אחרונה
                             </button>
                             <button class="align-execute-btn" id="executeAlignBtn" onclick="executeAlignment()" disabled>
@@ -669,7 +77,7 @@
                 </div>
             </div>
 
-            <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="main-content">
                 <div class="controls">
                     <button class="fullscreen-btn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
                     
@@ -726,12 +134,12 @@
                     </div>
                 </div>
 
-                <div class="viewer" style="flex: 1;">
+                <div class="viewer viewer-flex">
                     <div id="canvas-container">
                         <div class="instruction">
-                            <div style="font-size: 3.5em; margin-bottom: 15px;">🏛️</div>
+                            <div class="instruction-icon">🏛️</div>
                             <div>העלה מודלים תלת-ממדיים כדי להתחיל</div>
-                            <div style="font-size: 0.75em; margin-top: 8px; color: #999;">
+                            <div class="instruction-hint">
                                 תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה<br>
                                 <strong>תמיכה מלאה ב: OBJ, STL, GLB, GLTF</strong><br>
                                 <strong>יישור גמיש: בחר כמה נקודות שתרצה!</strong>
@@ -1396,7 +804,7 @@
                     <div>
                         <div class="model-name">
                             <div class="color-indicator" style="background-color: ${colorInfo.hex}"></div>
-                            <div style="flex: 1;">
+                            <div class="flex-grow">
                                 ${model.name}
                                 ${extension === 'GLB' || extension === 'GLTF' ? '<span class="format-badge">NEW</span>' : ''}
                                 <div class="color-name">צבע: ${colorInfo.name}</div>
@@ -1580,7 +988,7 @@
             if (!scene) initThreeJS();
             
             uploadBox.classList.add('loading');
-            loadingMsg.style.display = 'block';
+            loadingMsg.classList.remove('hidden');
             loadingMsg.textContent = 'טוען מודלים...';
             
             const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
@@ -1596,7 +1004,7 @@
             }
             
             uploadBox.classList.remove('loading');
-            loadingMsg.style.display = 'none';
+            loadingMsg.classList.add('hidden');
             e.target.value = '';
         });
 
@@ -1695,7 +1103,7 @@
                 alignState.selectingModel = modelId;
                 alignState.model1 = modelId;
                 alignState.points1 = [];
-                document.getElementById('alignSection').style.display = 'block';
+                document.getElementById('alignSection').classList.remove('hidden');
                 document.getElementById('canvas-container').classList.add('align-mode');
                 updateAlignStatus('בחר נקודות על ' + model.name + ' (לפחות ' + alignState.minPoints + ')');
                 updatePointCounter();
@@ -1783,8 +1191,8 @@
         }
 
         function showAlignButtons() {
-            document.getElementById('finishModelBtn').style.display = 'block';
-            document.getElementById('undoPointBtn').style.display = 'block';
+            document.getElementById('finishModelBtn').classList.remove('hidden');
+            document.getElementById('undoPointBtn').classList.remove('hidden');
         }
 
         function finishCurrentModel() {
@@ -1987,15 +1395,674 @@
             };
 
             document.querySelectorAll('.point-marker').forEach(m => m.remove());
-            
-            document.getElementById('alignSection').style.display = 'none';
+
+            document.getElementById('alignSection').classList.add('hidden');
             document.getElementById('executeAlignBtn').disabled = true;
-            document.getElementById('finishModelBtn').style.display = 'none';
-            document.getElementById('undoPointBtn').style.display = 'none';
+            document.getElementById('finishModelBtn').classList.add('hidden');
+            document.getElementById('undoPointBtn').classList.add('hidden');
             document.getElementById('canvas-container').classList.remove('align-mode');
             
             updateModelList();
         }
+
+        // ===== פונקציות הורדה =====
+
+        function updateDownloadSection() {
+            const section = document.getElementById('downloadSection');
+            const visibleModels = models.filter(m => m.visible);
+            if (visibleModels.length > 0) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+
+        function getCombinedGeometry() {
+            const visibleModels = models.filter(m => m.visible);
+            if (visibleModels.length === 0) {
+                console.log('No visible models');
+                return null;
+            }
+
+            const allPositions = [];
+            const allNormals = [];
+            const allIndices = [];
+            let indexOffset = 0;
+
+            visibleModels.forEach(model => {
+                // Update world matrix
+                model.group.updateMatrixWorld(true);
+                const worldMatrix = model.group.matrixWorld;
+                const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldMatrix);
+
+                const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
+
+                meshes.forEach(mesh => {
+                    if (!mesh.visible) return;
+
+                    const geometry = mesh.geometry;
+                    if (!geometry || !geometry.attributes || !geometry.attributes.position) {
+                        console.log('Skipping mesh with no geometry');
+                        return;
+                    }
+
+                    const positions = geometry.attributes.position.array;
+                    if (!positions || positions.length === 0) {
+                        console.log('Skipping mesh with no positions');
+                        return;
+                    }
+
+                    const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
+
+                    // Transform vertices to world space
+                    for (let i = 0; i < positions.length; i += 3) {
+                        const vertex = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
+                        vertex.applyMatrix4(worldMatrix);
+                        allPositions.push(vertex.x, vertex.y, vertex.z);
+
+                        if (normals) {
+                            const normal = new THREE.Vector3(normals[i], normals[i + 1], normals[i + 2]);
+                            normal.applyMatrix3(normalMatrix).normalize();
+                            allNormals.push(normal.x, normal.y, normal.z);
+                        }
+                    }
+
+                    // Handle indices
+                    if (geometry.index) {
+                        const indices = geometry.index.array;
+                        for (let i = 0; i < indices.length; i++) {
+                            allIndices.push(indices[i] + indexOffset);
+                        }
+                    } else {
+                        // Non-indexed geometry
+                        for (let i = 0; i < positions.length / 3; i++) {
+                            allIndices.push(i + indexOffset);
+                        }
+                    }
+
+                    indexOffset += positions.length / 3;
+                });
+            });
+
+            const combinedGeometry = new THREE.BufferGeometry();
+            combinedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
+            if (allNormals.length > 0) {
+                combinedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
+            }
+            if (allIndices.length > 0) {
+                combinedGeometry.setIndex(allIndices);
+            }
+
+            if (allNormals.length === 0) {
+                combinedGeometry.computeVertexNormals();
+            }
+
+            return combinedGeometry;
+        }
+
+        function exportToSTL(geometry) {
+            const positions = geometry.attributes.position.array;
+            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
+            const indices = geometry.index ? geometry.index.array : null;
+
+            let triangles = [];
+
+            if (indices) {
+                for (let i = 0; i < indices.length; i += 3) {
+                    const i0 = indices[i] * 3;
+                    const i1 = indices[i + 1] * 3;
+                    const i2 = indices[i + 2] * 3;
+
+                    const v0 = new THREE.Vector3(positions[i0], positions[i0 + 1], positions[i0 + 2]);
+                    const v1 = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
+                    const v2 = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
+
+                    // Calculate face normal
+                    const edge1 = v1.clone().sub(v0);
+                    const edge2 = v2.clone().sub(v0);
+                    const normal = edge1.cross(edge2).normalize();
+
+                    triangles.push({ vertices: [v0, v1, v2], normal });
+                }
+            } else {
+                for (let i = 0; i < positions.length; i += 9) {
+                    const v0 = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
+                    const v1 = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
+                    const v2 = new THREE.Vector3(positions[i + 6], positions[i + 7], positions[i + 8]);
+
+                    const edge1 = v1.clone().sub(v0);
+                    const edge2 = v2.clone().sub(v0);
+                    const normal = edge1.cross(edge2).normalize();
+
+                    triangles.push({ vertices: [v0, v1, v2], normal });
+                }
+            }
+
+            // Binary STL
+            const numTriangles = triangles.length;
+            const bufferLength = 84 + numTriangles * 50;
+            const buffer = new ArrayBuffer(bufferLength);
+            const view = new DataView(buffer);
+
+            // Header (80 bytes)
+            const header = 'Binary STL exported from Archaeological Site Viewer';
+            for (let i = 0; i < 80; i++) {
+                view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
+            }
+
+            // Number of triangles
+            view.setUint32(80, numTriangles, true);
+
+            // Triangles
+            let offset = 84;
+            for (const tri of triangles) {
+                // Normal
+                view.setFloat32(offset, tri.normal.x, true); offset += 4;
+                view.setFloat32(offset, tri.normal.y, true); offset += 4;
+                view.setFloat32(offset, tri.normal.z, true); offset += 4;
+
+                // Vertices
+                for (const v of tri.vertices) {
+                    view.setFloat32(offset, v.x, true); offset += 4;
+                    view.setFloat32(offset, v.y, true); offset += 4;
+                    view.setFloat32(offset, v.z, true); offset += 4;
+                }
+
+                // Attribute byte count
+                view.setUint16(offset, 0, true); offset += 2;
+            }
+
+            return new Blob([buffer], { type: 'application/octet-stream' });
+        }
+
+        function exportToOBJ(geometry) {
+            const positions = geometry.attributes.position.array;
+            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
+            const indices = geometry.index ? geometry.index.array : null;
+
+            let obj = '# OBJ exported from Archaeological Site Viewer\n';
+            obj += '# Vertices: ' + (positions.length / 3) + '\n\n';
+
+            // Vertices
+            for (let i = 0; i < positions.length; i += 3) {
+                obj += `v ${positions[i].toFixed(6)} ${positions[i + 1].toFixed(6)} ${positions[i + 2].toFixed(6)}\n`;
+            }
+
+            obj += '\n';
+
+            // Normals
+            if (normals) {
+                for (let i = 0; i < normals.length; i += 3) {
+                    obj += `vn ${normals[i].toFixed(6)} ${normals[i + 1].toFixed(6)} ${normals[i + 2].toFixed(6)}\n`;
+                }
+                obj += '\n';
+            }
+
+            // Faces
+            if (indices) {
+                for (let i = 0; i < indices.length; i += 3) {
+                    const i0 = indices[i] + 1;
+                    const i1 = indices[i + 1] + 1;
+                    const i2 = indices[i + 2] + 1;
+                    if (normals) {
+                        obj += `f ${i0}//${i0} ${i1}//${i1} ${i2}//${i2}\n`;
+                    } else {
+                        obj += `f ${i0} ${i1} ${i2}\n`;
+                    }
+                }
+            } else {
+                for (let i = 0; i < positions.length / 3; i += 3) {
+                    const i0 = i + 1;
+                    const i1 = i + 2;
+                    const i2 = i + 3;
+                    if (normals) {
+                        obj += `f ${i0}//${i0} ${i1}//${i1} ${i2}//${i2}\n`;
+                    } else {
+                        obj += `f ${i0} ${i1} ${i2}\n`;
+                    }
+                }
+            }
+
+            return new Blob([obj], { type: 'text/plain' });
+        }
+
+        function exportToGLTF(geometry, binary = false) {
+            console.log('exportToGLTF called, binary:', binary);
+
+            const positions = geometry.attributes.position.array;
+            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
+            const indices = geometry.index ? geometry.index.array : null;
+
+            console.log('Positions length:', positions.length);
+            console.log('Normals:', normals ? normals.length : 'none');
+            console.log('Indices:', indices ? indices.length : 'none');
+
+            // Create buffer data - copy to new typed arrays
+            const positionBuffer = new Float32Array(positions.length);
+            for (let i = 0; i < positions.length; i++) {
+                positionBuffer[i] = positions[i];
+            }
+            console.log('Position buffer created, byteLength:', positionBuffer.byteLength);
+
+            let normalBuffer = null;
+            if (normals) {
+                normalBuffer = new Float32Array(normals.length);
+                for (let i = 0; i < normals.length; i++) {
+                    normalBuffer[i] = normals[i];
+                }
+                console.log('Normal buffer created, byteLength:', normalBuffer.byteLength);
+            }
+
+            // Use Uint32Array for indices if needed
+            let indexBuffer = null;
+            let indexComponentType = 5123; // UNSIGNED_SHORT
+            if (indices && indices.length > 0) {
+                // Find max index without spread operator (which fails on large arrays)
+                let maxIndex = 0;
+                for (let i = 0; i < indices.length; i++) {
+                    if (indices[i] > maxIndex) maxIndex = indices[i];
+                }
+                console.log('Max index:', maxIndex);
+
+                if (maxIndex > 65535) {
+                    indexBuffer = new Uint32Array(indices.length);
+                    indexComponentType = 5125; // UNSIGNED_INT
+                } else {
+                    indexBuffer = new Uint16Array(indices.length);
+                }
+                for (let i = 0; i < indices.length; i++) {
+                    indexBuffer[i] = indices[i];
+                }
+                console.log('Index buffer created, byteLength:', indexBuffer.byteLength);
+            }
+
+            // Calculate bounding box
+            let minPos = [Infinity, Infinity, Infinity];
+            let maxPos = [-Infinity, -Infinity, -Infinity];
+            for (let i = 0; i < positions.length; i += 3) {
+                minPos[0] = Math.min(minPos[0], positions[i]);
+                minPos[1] = Math.min(minPos[1], positions[i + 1]);
+                minPos[2] = Math.min(minPos[2], positions[i + 2]);
+                maxPos[0] = Math.max(maxPos[0], positions[i]);
+                maxPos[1] = Math.max(maxPos[1], positions[i + 1]);
+                maxPos[2] = Math.max(maxPos[2], positions[i + 2]);
+            }
+
+            if (binary) {
+                // GLB format
+                return createGLB(positionBuffer, normalBuffer, indexBuffer, indexComponentType, minPos, maxPos);
+            } else {
+                // GLTF with embedded base64
+                return createGLTF(positionBuffer, normalBuffer, indexBuffer, indexComponentType, minPos, maxPos);
+            }
+        }
+
+        function createGLB(positionBuffer, normalBuffer, indexBuffer, indexComponentType, minPos, maxPos) {
+            console.log('createGLB called');
+
+            // Calculate buffer sizes with padding
+            const positionByteLength = positionBuffer.byteLength;
+            const normalByteLength = normalBuffer ? normalBuffer.byteLength : 0;
+            const indexByteLength = indexBuffer ? indexBuffer.byteLength : 0;
+
+            console.log('Byte lengths - position:', positionByteLength, 'normal:', normalByteLength, 'index:', indexByteLength);
+
+            // Pad to 4-byte boundaries
+            const padTo4 = (n) => Math.ceil(n / 4) * 4;
+
+            const paddedPositionLength = padTo4(positionByteLength);
+            const paddedNormalLength = padTo4(normalByteLength);
+            const paddedIndexLength = padTo4(indexByteLength);
+
+            const totalBufferLength = paddedPositionLength + paddedNormalLength + paddedIndexLength;
+
+            // Build accessors and buffer views
+            const bufferViews = [];
+            const accessors = [];
+            let byteOffset = 0;
+
+            // Position buffer view and accessor
+            bufferViews.push({
+                buffer: 0,
+                byteOffset: byteOffset,
+                byteLength: positionByteLength,
+                target: 34962 // ARRAY_BUFFER
+            });
+            accessors.push({
+                bufferView: 0,
+                byteOffset: 0,
+                componentType: 5126, // FLOAT
+                count: positionBuffer.length / 3,
+                type: 'VEC3',
+                min: minPos,
+                max: maxPos
+            });
+            byteOffset += paddedPositionLength;
+
+            let normalAccessorIndex = -1;
+            if (normalBuffer) {
+                bufferViews.push({
+                    buffer: 0,
+                    byteOffset: byteOffset,
+                    byteLength: normalByteLength,
+                    target: 34962
+                });
+                normalAccessorIndex = accessors.length;
+                accessors.push({
+                    bufferView: bufferViews.length - 1,
+                    byteOffset: 0,
+                    componentType: 5126,
+                    count: normalBuffer.length / 3,
+                    type: 'VEC3'
+                });
+                byteOffset += paddedNormalLength;
+            }
+
+            let indexAccessorIndex = -1;
+            if (indexBuffer) {
+                bufferViews.push({
+                    buffer: 0,
+                    byteOffset: byteOffset,
+                    byteLength: indexByteLength,
+                    target: 34963 // ELEMENT_ARRAY_BUFFER
+                });
+                indexAccessorIndex = accessors.length;
+                accessors.push({
+                    bufferView: bufferViews.length - 1,
+                    byteOffset: 0,
+                    componentType: indexComponentType,
+                    count: indexBuffer.length,
+                    type: 'SCALAR'
+                });
+            }
+
+            // Build primitive
+            const primitive = {
+                attributes: { POSITION: 0 },
+                mode: 4 // TRIANGLES
+            };
+            if (normalAccessorIndex >= 0) {
+                primitive.attributes.NORMAL = normalAccessorIndex;
+            }
+            if (indexAccessorIndex >= 0) {
+                primitive.indices = indexAccessorIndex;
+            }
+
+            // Build GLTF JSON
+            const gltf = {
+                asset: { version: '2.0', generator: 'Archaeological Site Viewer' },
+                scene: 0,
+                scenes: [{ nodes: [0] }],
+                nodes: [{ mesh: 0 }],
+                meshes: [{ primitives: [primitive] }],
+                accessors: accessors,
+                bufferViews: bufferViews,
+                buffers: [{ byteLength: totalBufferLength }]
+            };
+
+            const jsonString = JSON.stringify(gltf);
+            console.log('GLTF JSON:', jsonString.substring(0, 200) + '...');
+            const jsonBuffer = new TextEncoder().encode(jsonString);
+            const paddedJsonLength = padTo4(jsonBuffer.byteLength);
+
+            console.log('JSON buffer length:', jsonBuffer.byteLength, 'padded:', paddedJsonLength);
+
+            // Build GLB
+            const glbLength = 12 + 8 + paddedJsonLength + 8 + totalBufferLength;
+            console.log('Total GLB length:', glbLength);
+            const glb = new ArrayBuffer(glbLength);
+            const glbView = new DataView(glb);
+            const glbBytes = new Uint8Array(glb);
+
+            // GLB header
+            glbView.setUint32(0, 0x46546C67, true); // magic "glTF"
+            glbView.setUint32(4, 2, true); // version
+            glbView.setUint32(8, glbLength, true); // total length
+
+            // JSON chunk
+            glbView.setUint32(12, paddedJsonLength, true); // chunk length
+            glbView.setUint32(16, 0x4E4F534A, true); // chunk type "JSON"
+            glbBytes.set(jsonBuffer, 20);
+            // Pad with spaces
+            for (let i = jsonBuffer.byteLength; i < paddedJsonLength; i++) {
+                glbBytes[20 + i] = 0x20;
+            }
+
+            // Binary chunk
+            const binChunkStart = 20 + paddedJsonLength;
+            glbView.setUint32(binChunkStart, totalBufferLength, true);
+            glbView.setUint32(binChunkStart + 4, 0x004E4942, true); // chunk type "BIN"
+
+            // Copy buffer data
+            let binOffset = binChunkStart + 8;
+            glbBytes.set(new Uint8Array(positionBuffer.buffer, positionBuffer.byteOffset, positionBuffer.byteLength), binOffset);
+            binOffset += paddedPositionLength;
+
+            if (normalBuffer) {
+                glbBytes.set(new Uint8Array(normalBuffer.buffer, normalBuffer.byteOffset, normalBuffer.byteLength), binOffset);
+                binOffset += paddedNormalLength;
+            }
+
+            if (indexBuffer) {
+                glbBytes.set(new Uint8Array(indexBuffer.buffer, indexBuffer.byteOffset, indexBuffer.byteLength), binOffset);
+            }
+
+            console.log('GLB creation complete, creating blob...');
+            const blob = new Blob([glb], { type: 'model/gltf-binary' });
+            console.log('GLB blob created, size:', blob.size);
+            return blob;
+        }
+
+        function createGLTF(positionBuffer, normalBuffer, indexBuffer, indexComponentType, minPos, maxPos) {
+            console.log('createGLTF (non-binary) called');
+            // Combine all buffers
+            const totalLength = positionBuffer.byteLength +
+                               (normalBuffer ? normalBuffer.byteLength : 0) +
+                               (indexBuffer ? indexBuffer.byteLength : 0);
+
+            const combinedBuffer = new Uint8Array(totalLength);
+            let offset = 0;
+
+            combinedBuffer.set(new Uint8Array(positionBuffer.buffer, positionBuffer.byteOffset, positionBuffer.byteLength), offset);
+            const positionOffset = offset;
+            offset += positionBuffer.byteLength;
+
+            let normalOffset = 0;
+            if (normalBuffer) {
+                combinedBuffer.set(new Uint8Array(normalBuffer.buffer, normalBuffer.byteOffset, normalBuffer.byteLength), offset);
+                normalOffset = offset;
+                offset += normalBuffer.byteLength;
+            }
+
+            let indexOffset = 0;
+            if (indexBuffer) {
+                combinedBuffer.set(new Uint8Array(indexBuffer.buffer, indexBuffer.byteOffset, indexBuffer.byteLength), offset);
+                indexOffset = offset;
+            }
+
+            // Convert to base64 (handle large arrays)
+            console.log('Converting to base64, buffer length:', combinedBuffer.length);
+            let binary = '';
+            const chunkSize = 8192;
+            for (let i = 0; i < combinedBuffer.length; i += chunkSize) {
+                const chunk = combinedBuffer.subarray(i, Math.min(i + chunkSize, combinedBuffer.length));
+                binary += String.fromCharCode.apply(null, chunk);
+            }
+            console.log('Binary string length:', binary.length);
+            const base64 = btoa(binary);
+            console.log('Base64 length:', base64.length);
+            const dataUri = 'data:application/octet-stream;base64,' + base64;
+
+            // Build buffer views and accessors
+            const bufferViews = [];
+            const accessors = [];
+
+            bufferViews.push({
+                buffer: 0,
+                byteOffset: positionOffset,
+                byteLength: positionBuffer.byteLength,
+                target: 34962
+            });
+            accessors.push({
+                bufferView: 0,
+                byteOffset: 0,
+                componentType: 5126,
+                count: positionBuffer.length / 3,
+                type: 'VEC3',
+                min: minPos,
+                max: maxPos
+            });
+
+            let normalAccessorIndex = -1;
+            if (normalBuffer) {
+                bufferViews.push({
+                    buffer: 0,
+                    byteOffset: normalOffset,
+                    byteLength: normalBuffer.byteLength,
+                    target: 34962
+                });
+                normalAccessorIndex = accessors.length;
+                accessors.push({
+                    bufferView: bufferViews.length - 1,
+                    byteOffset: 0,
+                    componentType: 5126,
+                    count: normalBuffer.length / 3,
+                    type: 'VEC3'
+                });
+            }
+
+            let indexAccessorIndex = -1;
+            if (indexBuffer) {
+                bufferViews.push({
+                    buffer: 0,
+                    byteOffset: indexOffset,
+                    byteLength: indexBuffer.byteLength,
+                    target: 34963
+                });
+                indexAccessorIndex = accessors.length;
+                accessors.push({
+                    bufferView: bufferViews.length - 1,
+                    byteOffset: 0,
+                    componentType: indexComponentType,
+                    count: indexBuffer.length,
+                    type: 'SCALAR'
+                });
+            }
+
+            const primitive = {
+                attributes: { POSITION: 0 },
+                mode: 4
+            };
+            if (normalAccessorIndex >= 0) {
+                primitive.attributes.NORMAL = normalAccessorIndex;
+            }
+            if (indexAccessorIndex >= 0) {
+                primitive.indices = indexAccessorIndex;
+            }
+
+            const gltf = {
+                asset: { version: '2.0', generator: 'Archaeological Site Viewer' },
+                scene: 0,
+                scenes: [{ nodes: [0] }],
+                nodes: [{ mesh: 0 }],
+                meshes: [{ primitives: [primitive] }],
+                accessors: accessors,
+                bufferViews: bufferViews,
+                buffers: [{ byteLength: totalLength, uri: dataUri }]
+            };
+
+            console.log('GLTF JSON created');
+            const jsonStr = JSON.stringify(gltf, null, 2);
+            console.log('GLTF JSON string length:', jsonStr.length);
+            const blob = new Blob([jsonStr], { type: 'model/gltf+json' });
+            console.log('GLTF blob created, size:', blob.size);
+            return blob;
+        }
+
+        function downloadCombinedModel() {
+            try {
+                console.log('Starting download...');
+                const geometry = getCombinedGeometry();
+                if (!geometry) {
+                    alert('אין מודלים גלויים להורדה');
+                    return;
+                }
+
+                const posCount = geometry.attributes.position.array.length / 3;
+                console.log('Combined geometry vertices:', posCount);
+
+                if (posCount === 0) {
+                    alert('המודל ריק - אין נתונים להורדה');
+                    return;
+                }
+
+                const format = document.getElementById('exportFormat').value;
+                console.log('Export format:', format);
+                let blob, filename;
+
+                switch (format) {
+                    case 'stl':
+                        blob = exportToSTL(geometry);
+                        filename = 'combined_model.stl';
+                        break;
+                    case 'obj':
+                        blob = exportToOBJ(geometry);
+                        filename = 'combined_model.obj';
+                        break;
+                    case 'glb':
+                        try {
+                            console.log('Starting GLB export...');
+                            blob = exportToGLTF(geometry, true);
+                            console.log('GLB export successful, size:', blob.size);
+                        } catch (e) {
+                            console.error('GLB export error:', e);
+                            throw e;
+                        }
+                        filename = 'combined_model.glb';
+                        break;
+                    case 'gltf':
+                        try {
+                            console.log('Starting GLTF export...');
+                            blob = exportToGLTF(geometry, false);
+                            console.log('GLTF export successful, size:', blob.size);
+                        } catch (e) {
+                            console.error('GLTF export error:', e);
+                            throw e;
+                        }
+                        filename = 'combined_model.gltf';
+                        break;
+                }
+
+                console.log('Blob created, size:', blob.size);
+
+                // Download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+
+                // Cleanup after a delay
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+
+                console.log('Download triggered:', filename);
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('שגיאה בהורדה: ' + error.message);
+            }
+        }
+
+        // Update download section visibility when models change
+        const originalUpdateModelList = updateModelList;
+        updateModelList = function() {
+            originalUpdateModelList();
+            updateDownloadSection();
+        };
     </script>
 </body>
 </html>
