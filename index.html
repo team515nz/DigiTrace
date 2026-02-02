@@ -152,75 +152,39 @@
         </div>
     </div>
 
-    <!-- Help Modal -->
-    <div id="helpModal" class="modal">
-        <div class="modal-content">
-            <span class="modal-close" onclick="toggleHelp()">&times;</span>
-            <div class="modal-body" id="helpContent">
-                <div class="loading-help">טוען את מדריך העזרה...</div>
-            </div>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<div id="helpModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="toggleHelp()">&times;</span>
+        <div class="modal-body" id="helpContent">
+            <div class="loading-help">טוען את מדריך העזרה...</div>
         </div>
     </div>
+</div>
 
-    <!-- README Template (hidden) -->
-    <script type="text/markdown" id="readmeTemplate">
-# 🏺 מערכת ניתוח חפירות ארכיאולוגיות 3D
-מערכת אינטראקטיבית מבוססת דפדפן המיועדת להצגה, ניתוח וסנכרון של מודלים תלת-ממדיים משכבות חפירה. המערכת מאפשרת שילוב של סריקות שונות לכדי סצנה אחת מאוחדת לצורך מחקר ארכיאולוגי ויזואלי.
+<script type="text/markdown" id="readmeTemplate"></script>
 
----
+<script>
+    fetch('README.md')
+        .then(response => {
+            if (!response.ok) throw new Error('קובץ לא נמצא');
+            return response.text();
+        })
+        .then(data => {
+            // 1. שומר בתוך ה-Template כפי שביקשת
+            const template = document.getElementById('readmeTemplate');
+            template.textContent = data;
 
-## 🛠 מדריך הפעלה: על מה לוחצים?
-
-### שלב 1: העלאת המודלים
-* **איפה לוחצים:** בצד ימין, בתוך התיבה הלבנה עם האייקון 📤.
-* **מה קורה:** ייפתח חלון לבחירת קבצים מהמחשב. ניתן לבחור מספר קבצים בבת אחת (OBJ, STL, GLB, GLTF).
-* **טיפ:** המערכת תציג הודעת טעינה עד שהמודל יופיע במרכז המסך.
-
-### שלב 2: ניהול ושליטה בשכבות
-לאחר הטעינה, המודלים יופיעו ברשימה ב-Sidebar הימני. לכל מודל יש 3 כפתורים:
-1.  **כפתור העין:** לוחצים כדי להסתיר/להציג את המודל (שימושי כשרוצים לראות מה יש "מתחת" לשכבה מסוימת).
-2.  **כפתור הנעץ (📍):** לוחצים כדי להתחיל תהליך יישור (ראה שלב 3).
-3.  **כפתור הפח:** לוחצים למחיקת המודל מהסצנה.
-
-### שלב 3: יישור מודל (Alignment)
-אם העלית שתי שכבות שאינן יושבות אחת על השנייה במדויק:
-1.  לחץ על ה**נעץ (📍)** שליד המודל שברצונך להזיז.
-2.  המערכת תבקש ממך לסמן נקודות:
-    * **קליק ראשון:** על נקודה מסוימת במודל שאתה רוצה להזיז.
-    * **קליק שני:** על הנקודה המקבילה לה במודל ה"קבוע" (זה שכבר נמצא במקום).
-3.  לאחר סימון הנקודות, המערכת תחשב ותזיז את המודל למקומו החדש.
-
-### שלב 4: ניתוח חתכים (Clipping)
-* **איפה לוחצים:** בסרגל העליון ישנם 3 סליידרים (X, Y, Z).
-* **מה עושים:** גוררים את העיגול על הציר ימינה ושמאלה.
-* **התוצאה:** המודלים ייחתכו וייעלמו בהדרגה, מה שיאפשר לך לראות חתך רוחב (Section) של החפירה.
-
-### שלב 5: ייצוא ושמירה
-בתחתית התפריט הימני:
-1.  בוחרים את הפורמט הרצוי (STL או GLTF) מהתפריט הנפתח.
-2.  לוחצים על הכפתור הכחול **"הורד מודל משולב"**.
-3.  **התוצאה:** המערכת תאחד את כל מה שמוצג על המסך לקובץ אחד ותוריד אותו למחשב.
-
----
-
-## ✨ פיצ'רים מרכזיים
-
-### 🔍 ניתוח שכבות דינמי (Advanced Clipping)
-היכולת לבצע "חפירה וירטואלית" באמצעות מישורי חיתוך בזמן אמת. חיוני לבחינת הקשרים סטרטיגרפיים ומבנים פנימיים.
-
-### 📍 אלגוריתם יישור נקודתי (Multi-Point Alignment)
-סנכרון מרחבי מדויק בין סריקות שונות ללא צורך בתוכנות חיצוניות.
-
-### 🎥 תצוגת 3D אינטראקטיבית
-* **מנוע:** Three.js.
-* **תנועה:** גרירה לסיבוב, גלגלת לזום, כפתור ימני להזזה (Pan).
-
-### ⛶ מצב מסך מלא
-לחיצה על אייקון הריבוע בפינה העליונה תנקה את המסך ותציג רק את המודל עם בקרים צפים – אידיאלי להצגת ממצאים בכנסים או בשטח.
-
-**טכנולוגיות:** Three.js, JavaScript ES6, CSS Grid/Flexbox, HTML5 File API
-
-    </script>
+            // 2. מזריק את התוכן המעובד לתוך גוף המודל
+            const helpContent = document.getElementById('helpContent');
+            helpContent.innerHTML = marked.parse(data); 
+        })
+        .catch(err => {
+            document.getElementById('helpContent').innerHTML = "שגיאה בטעינת העזרה.";
+            console.error(err);
+        });
+</script>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
