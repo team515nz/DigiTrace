@@ -1036,6 +1036,16 @@ body {
         padding: 8px 15px;
         font-size: 0.85em;
     }
+    
+    .help-btn {
+        position: static;
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 8px 15px;
+        font-size: 0.85em;
+        left: auto;
+        top: auto;
+    }
 
     .control-group {
         margin-bottom: 8px;
