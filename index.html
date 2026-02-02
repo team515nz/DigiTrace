@@ -80,6 +80,7 @@
             <div class="main-content">
                 <div class="controls">
                     <button class="fullscreen-btn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
+                    <button class="help-btn" onclick="toggleHelp()">❓ עזרה</button>
                     
                     <div class="control-group">
                         <label>
@@ -151,6 +152,17 @@
         </div>
     </div>
 
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="toggleHelp()">&times;</span>
+            <div class="modal-body" id="helpContent">
+                <div class="loading-help">טוען את מדריך העזרה...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         let scene, camera, renderer;
         let models = [];
@@ -1078,6 +1090,50 @@
                 }
             }, 100);
         }
+
+        async function loadReadme() {
+            try {
+                const response = await fetch('README.md');
+                const markdown = await response.text();
+                
+                // Convert markdown to HTML using marked.js
+                const html = marked.parse(markdown);
+                
+                // Wrap content with proper RTL styling
+                const wrappedHtml = `<div class="readme-content">${html}</div>`;
+                
+                document.getElementById('helpContent').innerHTML = wrappedHtml;
+            } catch (error) {
+                console.error('Error loading README:', error);
+                document.getElementById('helpContent').innerHTML = `
+                    <div class="error-message">
+                        <h3>⚠️ שגיאה בטעינת מדריך העזרה</h3>
+                        <p>לא ניתן לטעון את קובץ README.md. אנא ודא שהקובץ נמצא באותה תיקייה עם index.html</p>
+                    </div>
+                `;
+            }
+        }
+
+        function toggleHelp() {
+            const modal = document.getElementById('helpModal');
+            if (modal.style.display === 'block') {
+                modal.style.display = 'none';
+            } else {
+                modal.style.display = 'block';
+                // Load README if not already loaded
+                if (document.querySelector('.loading-help')) {
+                    loadReadme();
+                }
+            }
+        }
+
+        // Close modal when clicking outside of it
+        window.addEventListener('click', (event) => {
+            const modal = document.getElementById('helpModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
 
         window.addEventListener('resize', () => {
             if (renderer && camera) {
