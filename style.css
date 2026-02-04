@@ -443,33 +443,7 @@ body.rtl .lang-switcher {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
 }
-
-.point-marker {
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    background: #FF4444;
-    border: 2px solid white;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    z-index: 100;
-    box-shadow: 0 0 10px rgba(255, 68, 68, 0.8);
-}
-
-.point-marker::after {
-    content: attr(data-label);
-    position: absolute;
-    top: -25px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 10px;
-    white-space: nowrap;
-}
+/* Legacy 2D point markers removed — markers now rendered in 3D as sphere meshes */
 
 .align-section {
     background: #e3f2fd;
