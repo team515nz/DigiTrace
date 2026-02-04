@@ -384,13 +384,7 @@ body {
 }
 
 .format-badge {
-    display: inline-block;
-    background: #4CAF50;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 0.7em;
-    margin-left: 5px;
+    display: none !important; /* Removed visible NEW badges site-wide */
 }
 
 .align-btn {

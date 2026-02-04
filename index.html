@@ -23,7 +23,6 @@
                         <div>לחץ להעלאת קובץ 3D</div>
                         <small class="text-muted">
                             OBJ, STL, GLB, GLTF
-                            <span class="format-badge">NEW</span>
                         </small>
                     </div>
                     <div id="loadingMessage" class="loading-message hidden"></div>
@@ -842,7 +841,6 @@
                             <div class="color-indicator" style="background-color: ${colorInfo.hex}"></div>
                             <div class="flex-grow">
                                 ${model.name}
-                                ${extension === 'GLB' || extension === 'GLTF' ? '<span class="format-badge">NEW</span>' : ''}
                                 <div class="color-name">צבע: ${colorInfo.name}</div>
                             </div>
                         </div>
