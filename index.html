@@ -1187,7 +1187,7 @@
 
         async function loadReadme() {
             const lang = getCurrentLang() || 'en';
-            const candidates = [`README.${lang}.md`, 'README.md'];
+            const candidates = [`readmes/README.${lang}.md`, `README.${lang}.md`, 'README.md'];
 
             for (let path of candidates) {
                 try {
