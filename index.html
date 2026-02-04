@@ -2253,6 +2253,19 @@
       const saved = localStorage.getItem('siteLang') || browserLang;
       langSelect.value = languages.includes(saved) ? saved : (languages.includes(browserLang) ? browserLang : (languages.includes('he') ? 'he' : (languages.includes('en') ? 'en' : languages[0])));
       applyTranslations(langSelect.value);
+
+      // Re-apply translations every 5 seconds to handle dynamic content that may be added later
+      const i18nRefresher = setInterval(() => {
+        try {
+          const cur = langSelect.value || saved;
+          applyTranslations(cur);
+        } catch (e) {
+          console.error('i18n refresher error:', e);
+        }
+      }, 5000);
+
+      // Clear interval on unload to avoid leaks
+      window.addEventListener('beforeunload', () => clearInterval(i18nRefresher));
     })();
     </script>
 </body>
