@@ -1,7 +1,7 @@
 window.TRANSLATIONS = {
   en: {
     nativeName: "English",
-    siteTitle: "🏺 3D Archaeological Excavation Analysis",
+    siteTitle: "DigiTrace - 🏺 3D Archaeological Excavation Analysis",
     siteSubtitle: "Upload 3D models and analyze excavation layers • Flexible alignment with multiple points",
     uploadTitle: "📁 Upload Models",
     uploadHint: "Click to upload a 3D file",
@@ -29,7 +29,7 @@ window.TRANSLATIONS = {
   },
   he: {
     nativeName: "עברית",
-    siteTitle: "🏺 מערכת ניתוח חפירות ארכיאולוגיות 3D",
+    siteTitle: "DigiTrace - 🏺 מערכת ניתוח חפירות ארכיאולוגיות 3D",
     siteSubtitle: "העלאת מודלים תלת-ממדיים וניתוח שכבות חפירה • יישור גמיש עם מספר נקודות",
     uploadTitle: "📁 העלאת מודלים",
     uploadHint: "לחץ להעלאת קובץ 3D",
@@ -57,7 +57,7 @@ window.TRANSLATIONS = {
   },
   ar: {
     nativeName: "العربية",
-    siteTitle: "🏺 تحليل الحفريات الأثرية ثلاثي الأبعاد",
+    siteTitle: "DigiTrace - 🏺 تحليل الحفريات الأثرية ثلاثي الأبعاد",
     siteSubtitle: "رفع نماذج ثلاثية الأبعاد وتحليل طبقات الحفر • محاذاة مرنة مع نقاط متعددة",
     uploadTitle: "📁 رفع النماذج",
     uploadHint: "انقر لتحميل ملف ثلاثي الأبعاد",
@@ -85,7 +85,7 @@ window.TRANSLATIONS = {
   },
   fr: {
     nativeName: "Français",
-    siteTitle: "🏺 Analyse de fouilles archéologiques 3D",
+    siteTitle: "DigiTrace - 🏺 Analyse de fouilles archéologiques 3D",
     siteSubtitle: "Téléversez des modèles 3D et analysez les couches • Alignement flexible avec plusieurs points",
     uploadTitle: "📁 Importer des modèles",
     uploadHint: "Cliquez pour téléverser un fichier 3D",
@@ -113,7 +113,7 @@ window.TRANSLATIONS = {
   },
   es: {
     nativeName: "Español",
-    siteTitle: "🏺 Análisis 3D de excavaciones arqueológicas",
+    siteTitle: "DigiTrace - 🏺 Análisis 3D de excavaciones arqueológicas",
     siteSubtitle: "Sube modelos 3D y analiza capas • Alineación flexible con múltiples puntos",
     uploadTitle: "📁 Subir modelos",
     uploadHint: "Haz clic para subir un archivo 3D",
@@ -141,7 +141,7 @@ window.TRANSLATIONS = {
   },
   de: {
     nativeName: "Deutsch",
-    siteTitle: "🏺 3D-Analyse archäologischer Ausgrabungen",
+    siteTitle: "DigiTrace - 🏺 3D-Analyse archäologischer Ausgrabungen",
     siteSubtitle: "3D-Modelle hochladen und Schichten analysieren • Flexible Ausrichtung mit mehreren Punkten",
     uploadTitle: "📁 Modelle hochladen",
     uploadHint: "Klicken, um eine 3D-Datei hochzuladen",
@@ -169,7 +169,7 @@ window.TRANSLATIONS = {
   },
   pt: {
     nativeName: "Português",
-    siteTitle: "🏺 Análise 3D de Escavações Arqueológicas",
+    siteTitle: "DigiTrace - 🏺 Análise 3D de Escavações Arqueológicas",
     siteSubtitle: "Envie modelos 3D e analise camadas • Alinhamento flexível com vários pontos",
     uploadTitle: "📁 Enviar modelos",
     uploadHint: "Clique para enviar um arquivo 3D",
@@ -197,7 +197,7 @@ window.TRANSLATIONS = {
   },
   it: {
     nativeName: "Italiano",
-    siteTitle: "🏺 Analisi 3D degli Scavi Archeologici",
+    siteTitle: "DigiTrace - 🏺 Analisi 3D degli Scavi Archeologici",
     siteSubtitle: "Carica modelli 3D e analizza gli strati • Allineamento flessibile con più punti",
     uploadTitle: "📁 Carica modelli",
     uploadHint: "Clicca per caricare un file 3D",
@@ -225,7 +225,7 @@ window.TRANSLATIONS = {
   },
   ru: {
     nativeName: "Русский",
-    siteTitle: "🏺 3D анализ археологических раскопок",
+    siteTitle: "DigiTrace - 🏺 3D анализ археологических раскопок",
     siteSubtitle: "Загрузите 3D-модели и проанализируйте слои • Гибкое выравнивание с несколькими точками",
     uploadTitle: "📁 Загрузить модели",
     uploadHint: "Нажмите, чтобы загрузить 3D-файл",
@@ -253,7 +253,7 @@ window.TRANSLATIONS = {
   },
   zh: {
     nativeName: "中文",
-    siteTitle: "🏺 3D 考古发掘分析",
+    siteTitle: "DigiTrace - 🏺 3D 考古发掘分析",
     siteSubtitle: "上传 3D 模型并分析发掘层 • 支持多点灵活对齐",
     uploadTitle: "📁 上传模型",
     uploadHint: "点击上传 3D 文件",
@@ -281,7 +281,7 @@ window.TRANSLATIONS = {
   },
   ja: {
     nativeName: "日本語",
-    siteTitle: "🏺 3D 考古発掘解析",
+    siteTitle: "DigiTrace - 🏺 3D 考古発掘解析",
     siteSubtitle: "3D モデルをアップロードして層を解析 • 複数点で柔軟に整列",
     uploadTitle: "📁 モデルをアップロード",
     uploadHint: "クリックして 3D ファイルをアップロード",
@@ -309,7 +309,7 @@ window.TRANSLATIONS = {
   },
   hi: {
     nativeName: "हिन्दी",
-    siteTitle: "🏺 3D पुरातात्विक उत्खनन विश्लेषण",
+    siteTitle: "DigiTrace - 🏺 3D पुरातात्विक उत्खनन विश्लेषण",
     siteSubtitle: "3D मॉडल अपलोड करें और परतों का विश्लेषण करें • बहु-बिंदु लचीला संरेखण",
     uploadTitle: "📁 मॉडल अपलोड करें",
     uploadHint: "3D फ़ाइल अपलोड करने के लिए क्लिक करें",
