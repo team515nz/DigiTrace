@@ -118,6 +118,7 @@
                 <button class="close-fullscreen" data-i18n="closeFullscreen" onclick="toggleFullscreen()">✕ סגור מסך מלא</button>
                 
                 <div class="fullscreen-controls" id="fullscreenControls">
+                    <button class="fullscreen-btn" id="rulerBtnFS" onclick="toggleRuler()" style="background:#5a5a8a;margin-bottom:8px;width:100%;">📏 סרגל</button>
                     <div class="control-group">
                         <label>
                             <span class="value-display" id="cutYValueFS" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
@@ -861,6 +862,7 @@
 
                 models.push(modelData);
                 restoreModelTransform(modelData);
+                saveModelToIDB(modelData);
                 updateModelList();
                 calculateGlobalBoundingBox();
                 
@@ -970,6 +972,7 @@
             const index = models.findIndex(m => m.id === id);
             if (index !== -1) {
                 const removedModelId = models[index].id;
+                const removedName = models[index].name;
                 scene.remove(models[index].group);
                 models.splice(index, 1);
 
@@ -986,6 +989,7 @@
                 applyCuts();
                 updateModelList();
                 saveSession();
+                idbDelete(removedName).catch(()=>{});
             }
         }
 
@@ -2593,17 +2597,135 @@
                 await new Promise(r => setTimeout(r, 300));
             }
         }
-        // ===== שמירה ב-localStorage =====
+        // ===== שמירה מלאה - IndexedDB + localStorage + cookies =====
         const STORAGE_KEY = 'digitrace_session';
+        const IDB_NAME = 'DigiTraceDB';
+        const IDB_STORE = 'models';
+        let _idb = null;
 
-        function saveSession() {
+        function openIDB() {
+            return new Promise((resolve, reject) => {
+                if (_idb) return resolve(_idb);
+                const req = indexedDB.open(IDB_NAME, 1);
+                req.onupgradeneeded = e => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath: 'name' });
+                };
+                req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function idbPut(record) {
+            const db = await openIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                tx.objectStore(IDB_STORE).put(record);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function idbGetAll() {
+            const db = await openIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readonly');
+                const req = tx.objectStore(IDB_STORE).getAll();
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function idbClear() {
+            const db = await openIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                tx.objectStore(IDB_STORE).clear();
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function idbDelete(name) {
+            const db = await openIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                tx.objectStore(IDB_STORE).delete(name);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        // שמור geometry כ-ArrayBuffer ב-IndexedDB
+        function geometryToArrayBuffer(geometry) {
+            const positions = geometry.attributes.position.array;
+            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
+            const indices = geometry.index ? geometry.index.array : null;
+
+            const posLen = positions.length;
+            const normLen = normals ? normals.length : 0;
+            const idxLen = indices ? indices.length : 0;
+
+            // header: 3 ints (posLen, normLen, idxLen)
+            const header = new Int32Array([posLen, normLen, idxLen]);
+            const posBytes = new Float32Array(positions);
+            const normBytes = normals ? new Float32Array(normals) : new Float32Array(0);
+            const idxBytes = indices ? (idxLen > 65535 ? new Uint32Array(indices) : new Uint16Array(indices)) : new Uint16Array(0);
+            const idxIsU32 = indices && idxLen > 65535;
+            const flagArr = new Uint8Array([idxIsU32 ? 1 : 0]);
+
+            const totalBytes = 12 + 1 + posBytes.byteLength + normBytes.byteLength + idxBytes.byteLength;
+            const buf = new ArrayBuffer(totalBytes);
+            const view = new Uint8Array(buf);
+            let offset = 0;
+            view.set(new Uint8Array(header.buffer), offset); offset += 12;
+            view.set(flagArr, offset); offset += 1;
+            view.set(new Uint8Array(posBytes.buffer), offset); offset += posBytes.byteLength;
+            if (normBytes.byteLength) { view.set(new Uint8Array(normBytes.buffer), offset); offset += normBytes.byteLength; }
+            if (idxBytes.byteLength)  { view.set(new Uint8Array(idxBytes.buffer),  offset); }
+            return buf;
+        }
+
+        function arrayBufferToGeometry(buf) {
+            const headerView = new Int32Array(buf, 0, 3);
+            const [posLen, normLen, idxLen] = headerView;
+            const flag = new Uint8Array(buf, 12, 1)[0];
+            let offset = 13;
+
+            const positions = new Float32Array(buf, offset, posLen); offset += posLen * 4;
+            const normals = normLen > 0 ? new Float32Array(buf, offset, normLen) : null; if (normLen) offset += normLen * 4;
+            let indices = null;
+            if (idxLen > 0) {
+                indices = flag ? new Uint32Array(buf, offset, idxLen) : new Uint16Array(buf, offset, idxLen);
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3));
+            if (normals) geo.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(normals), 3));
+            if (indices) geo.setIndex(new THREE.BufferAttribute(flag ? new Uint32Array(indices) : new Uint16Array(indices), 1));
+            return geo;
+        }
+
+        // שמור מודל ב-IndexedDB
+        async function saveModelToIDB(model) {
+            try {
+                const meshes = model.meshes.filter(m => !(m.userData && m.userData.label) && !m.isSprite);
+                const geoBuffers = meshes.map(mesh => geometryToArrayBuffer(model.originalGeometries[model.meshes.indexOf(mesh)] || mesh.geometry));
+                await idbPut({
+                    name: model.name,
+                    color: model.color,
+                    unit: model.unit || 'm',
+                    geoBuffers
+                });
+            } catch(e) {
+                console.warn('saveModelToIDB error:', e);
+            }
+        }
+
+        async function saveSession() {
             try {
                 const session = {
-                    camera: {
-                        horizontal: cameraRotation.horizontal,
-                        vertical: cameraRotation.vertical,
-                        distance: cameraDistance
-                    },
+                    camera: { horizontal: cameraRotation.horizontal, vertical: cameraRotation.vertical, distance: cameraDistance },
                     sliders: {
                         cutY: document.getElementById('cutY').value,
                         cutX: document.getElementById('cutX').value,
@@ -2611,7 +2733,6 @@
                     },
                     exportFormat: document.getElementById('exportFormat').value,
                     models: models.map(m => ({
-                        id: m.id,
                         name: m.name,
                         date: m.date,
                         unit: m.unit || 'm',
@@ -2624,101 +2745,140 @@
                 };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 
-                // cookies — שומר רק מידע קל (לא geometry)
-                const cookieData = {
-                    cutY: session.sliders.cutY,
-                    cutX: session.sliders.cutX,
-                    cutZ: session.sliders.cutZ,
-                    camH: Math.round(cameraRotation.horizontal),
-                    camV: Math.round(cameraRotation.vertical),
-                    camD: cameraDistance.toFixed(2),
-                    fmt: session.exportFormat
-                };
+                // cookies — מידע קל בלבד
                 const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
-                document.cookie = `digitrace=${encodeURIComponent(JSON.stringify(cookieData))};expires=${expires};path=/;SameSite=Lax`;
+                const mini = { cutY: session.sliders.cutY, cutX: session.sliders.cutX, cutZ: session.sliders.cutZ,
+                               camH: cameraRotation.horizontal.toFixed(1), camV: cameraRotation.vertical.toFixed(1),
+                               camD: cameraDistance.toFixed(2), fmt: session.exportFormat };
+                document.cookie = `digitrace=${encodeURIComponent(JSON.stringify(mini))};expires=${expires};path=/;SameSite=Lax`;
             } catch(e) {
                 console.warn('saveSession error:', e);
             }
         }
 
-        function loadSession() {
+        async function restoreFullSession() {
             try {
-                // נסה localStorage קודם (יש בו יותר נתונים)
-                let session = null;
+                // שחזר הגדרות מ-localStorage
                 const raw = localStorage.getItem(STORAGE_KEY);
-                if (raw) session = JSON.parse(raw);
-
-                // fallback לcookies
-                if (!session) {
-                    const match = document.cookie.match(/digitrace=([^;]+)/);
-                    if (match) session = JSON.parse(decodeURIComponent(match[1]));
-                }
-
-                if (!session) return;
+                if (!raw) return false;
+                const session = JSON.parse(raw);
 
                 // מצלמה
                 if (session.camera) {
                     cameraRotation.horizontal = session.camera.horizontal ?? 45;
                     cameraRotation.vertical   = session.camera.vertical   ?? 30;
                     cameraDistance            = session.camera.distance   ?? 8;
-                } else if (session.camH !== undefined) {
-                    cameraRotation.horizontal = parseFloat(session.camH);
-                    cameraRotation.vertical   = parseFloat(session.camV);
-                    cameraDistance            = parseFloat(session.camD);
                 }
 
                 // סליידרים
-                const sliders = session.sliders || session;
-                if (sliders.cutY !== undefined) {
+                if (session.sliders) {
                     ['cutY','cutX','cutZ'].forEach(id => {
-                        const el = document.getElementById(id);
-                        if (el && sliders[id] !== undefined) el.value = sliders[id];
+                        document.getElementById(id).value = session.sliders[id];
                     });
-                    document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${sliders.cutY}%`;
-                    document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${sliders.cutX}%`;
-                    document.getElementById('cutZValue').textContent = `חיתוך עומק: ${sliders.cutZ}%`;
+                    document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${session.sliders.cutY}%`;
+                    document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${session.sliders.cutX}%`;
+                    document.getElementById('cutZValue').textContent = `חיתוך עומק: ${session.sliders.cutZ}%`;
                 }
 
-                // פורמט ייצוא
-                const fmt = session.exportFormat || session.fmt;
-                if (fmt) document.getElementById('exportFormat').value = fmt;
+                if (session.exportFormat) document.getElementById('exportFormat').value = session.exportFormat;
 
-                // שמור מטאדטה של מודלים לשחזור אחרי העלאה
-                if (session.models && session.models.length > 0) {
-                    window._savedModelMeta = {};
-                    session.models.forEach(m => {
-                        window._savedModelMeta[m.name] = m;
-                    });
+                if (!session.models || session.models.length === 0) return true;
+
+                // שחזר geometry מ-IndexedDB
+                const idbRecords = await idbGetAll();
+                const idbMap = {};
+                idbRecords.forEach(r => idbMap[r.name] = r);
+
+                if (!scene) initThreeJS();
+
+                const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
+                const loadingMsg = document.getElementById('loadingMessage');
+                loadingMsg.classList.remove('hidden');
+
+                for (const meta of session.models) {
+                    const idbRec = idbMap[meta.name];
+                    if (!idbRec) continue;
+
+                    loadingMsg.textContent = `משחזר ${meta.name}...`;
+
+                    try {
+                        const mainGroup = new THREE.Group();
+                        const color = meta.color || colors[models.length % colors.length];
+
+                        idbRec.geoBuffers.forEach(buf => {
+                            const geometry = arrayBufferToGeometry(buf);
+                            const material = new THREE.MeshStandardMaterial({
+                                color, transparent: true, opacity: 0.85,
+                                side: THREE.DoubleSide, flatShading: false
+                            });
+                            mainGroup.add(new THREE.Mesh(geometry, material));
+                        });
+
+                        if (mainGroup.children.length === 0) continue;
+
+                        // החל transform שמור
+                        mainGroup.position.set(meta.position.x, meta.position.y, meta.position.z);
+                        mainGroup.rotation.set(meta.rotation.x, meta.rotation.y, meta.rotation.z);
+                        mainGroup.scale.set(meta.scale.x, meta.scale.y, meta.scale.z);
+                        mainGroup.visible = meta.visible;
+
+                        scene.add(mainGroup);
+
+                        const modelData = {
+                            id: modelCounter++,
+                            name: meta.name,
+                            date: meta.date,
+                            group: mainGroup,
+                            meshes: mainGroup.children,
+                            visible: meta.visible,
+                            originalGeometries: mainGroup.children.map(m => m.geometry.clone()),
+                            color,
+                            unit: meta.unit || 'm'
+                        };
+
+                        models.push(modelData);
+                    } catch(e) {
+                        console.warn('restore model error:', meta.name, e);
+                    }
                 }
 
-            } catch(e) {
-                console.warn('loadSession error:', e);
-            }
-        }
-
-        // שחזור transform של מודל אחרי טעינה (לפי שם)
-        function restoreModelTransform(modelData) {
-            const meta = window._savedModelMeta && window._savedModelMeta[modelData.name];
-            if (!meta) return;
-            modelData.group.position.set(meta.position.x, meta.position.y, meta.position.z);
-            modelData.group.rotation.set(meta.rotation.x, meta.rotation.y, meta.rotation.z);
-            modelData.group.scale.set(meta.scale.x, meta.scale.y, meta.scale.z);
-            modelData.visible = meta.visible;
-            modelData.group.visible = meta.visible;
-            if (meta.unit) modelData.unit = meta.unit;
-        }
-
-        // שמור אוטומטית כל 5 שניות + על כל שינוי משמעותי
-        setInterval(saveSession, 5000);
-        window.addEventListener('beforeunload', saveSession);
-
-        // טען בעת אתחול
-        window.addEventListener('load', () => {
-            loadSession();
-            if (scene) {
+                loadingMsg.classList.add('hidden');
+                updateModelList();
+                calculateGlobalBoundingBox();
                 updateCameraPosition();
                 applyCuts();
+                adjustCameraToModel();
+                return true;
+            } catch(e) {
+                console.warn('restoreFullSession error:', e);
+                return false;
             }
+        }
+
+        // שחזור transform של מודל אחרי טעינה ידנית (לפי שם)
+        function restoreModelTransform(modelData) {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+            try {
+                const session = JSON.parse(raw);
+                const meta = session.models && session.models.find(m => m.name === modelData.name);
+                if (!meta) return;
+                modelData.group.position.set(meta.position.x, meta.position.y, meta.position.z);
+                modelData.group.rotation.set(meta.rotation.x, meta.rotation.y, meta.rotation.z);
+                modelData.group.scale.set(meta.scale.x, meta.scale.y, meta.scale.z);
+                modelData.visible = meta.visible;
+                modelData.group.visible = meta.visible;
+                if (meta.unit) modelData.unit = meta.unit;
+            } catch(e) {}
+        }
+
+        // שמור כל שנייה + על כל פעולה
+        setInterval(saveSession, 1000);
+        window.addEventListener('beforeunload', saveSession);
+
+        // שחזר בטעינה
+        window.addEventListener('load', async () => {
+            await restoreFullSession();
         });
 
 
