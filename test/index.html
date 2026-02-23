@@ -168,6 +168,7 @@
 <div id="rulerOverlay" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.9em;pointer-events:none;z-index:10000;white-space:nowrap;"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <div id="helpModal" class="modal">
     <div class="modal-content">
@@ -2648,18 +2649,41 @@
             const visibleModels = models.filter(m => m.visible);
             if (visibleModels.length === 0) { alert('אין מודלים גלויים להורדה'); return; }
             const format = document.getElementById('exportFormat').value;
+
+            // Build file list
+            const files = [];
             for (const model of visibleModels) {
                 const geo = getSingleModelGeometry(model);
                 const baseName = model.name.replace(/\.[^.]+$/, '');
                 let blob, ext;
                 switch (format) {
-                    case 'stl': blob = exportToSTL(geo); ext = 'stl'; break;
-                    case 'obj': blob = exportToOBJ(geo); ext = 'obj'; break;
-                    case 'glb': blob = exportToGLTF(geo, true); ext = 'glb'; break;
+                    case 'stl':  blob = exportToSTL(geo);         ext = 'stl';  break;
+                    case 'obj':  blob = exportToOBJ(geo);         ext = 'obj';  break;
+                    case 'glb':  blob = exportToGLTF(geo, true);  ext = 'glb';  break;
                     case 'gltf': blob = exportToGLTF(geo, false); ext = 'gltf'; break;
                 }
-                triggerDownload(blob, `aligned_${baseName}.${ext}`);
-                await new Promise(r => setTimeout(r, 300));
+                files.push({ blob, filename: `aligned_${baseName}.${ext}` });
+            }
+
+            if (files.length > 3) {
+                // הורד כ-ZIP
+                if (typeof JSZip === 'undefined') {
+                    alert('שגיאה: ספריית JSZip לא נטענה. בדוק חיבור לאינטרנט.');
+                    return;
+                }
+                const zip = new JSZip();
+                for (const f of files) {
+                    const arrayBuf = await f.blob.arrayBuffer();
+                    zip.file(f.filename, arrayBuf);
+                }
+                const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+                triggerDownload(zipBlob, `digitage_models_${files.length}.zip`);
+            } else {
+                // הורד בנפרד
+                for (const f of files) {
+                    triggerDownload(f.blob, f.filename);
+                    await new Promise(r => setTimeout(r, 300));
+                }
             }
         }
         // ===== שמירה מלאה - IndexedDB + localStorage + cookies =====
