@@ -170,6 +170,36 @@
     </div>
 </div>
 
+<!-- מודל יחידות מידה -->
+<div id="unitsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:28px 32px;max-width:480px;width:90%;color:#eee;font-family:inherit;direction:rtl;">
+        <h3 style="margin:0 0 8px;font-size:1.1em;">📐 יחידות מידה</h3>
+        <p id="unitsModalDesc" style="margin:0 0 18px;font-size:0.88em;color:#aaa;line-height:1.5;"></p>
+
+        <div style="margin-bottom:16px;">
+            <label style="font-size:0.9em;display:block;margin-bottom:6px;">יחידת מידה לכל המודלים החדשים:</label>
+            <select id="unitsGlobalSelect" style="width:100%;padding:8px;border-radius:6px;background:#2a2a3e;color:#eee;border:1px solid #555;font-size:0.95em;">
+                <option value="mm">מילימטר (mm)</option>
+                <option value="cm">סנטימטר (cm)</option>
+                <option value="m" selected>מטר (m)</option>
+                <option value="inch">אינץ' (inch)</option>
+                <option value="ft">רגל (ft)</option>
+            </select>
+        </div>
+
+        <div id="unitsPerModelSection" style="display:none;margin-bottom:16px;">
+            <div style="background:#ff9800;color:#000;padding:8px 12px;border-radius:6px;font-size:0.85em;margin-bottom:12px;">
+                ⚠️ נזהה הבדל גדול בגודל בין המודלים — ייתכן שיש להם יחידות שונות. תוכל להגדיר לכל אחד בנפרד:
+            </div>
+            <div id="unitsPerModelList"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+            <button onclick="confirmUnits()" style="padding:8px 22px;border-radius:6px;background:#4a9;border:none;color:#fff;cursor:pointer;font-size:0.95em;">אישור</button>
+        </div>
+    </div>
+</div>
+
 <script type="text/markdown" id="readmeTemplate"></script>
 
 <script>
@@ -742,7 +772,7 @@
             });
         }
 
-        async function addModelFromFile(file, color) {
+        async function addModelFromFile(file, color, unit = 'm') {
             try {
                 let geometries;
                 const extension = file.name.split('.').pop().toLowerCase();
@@ -813,7 +843,8 @@
                     meshes: mainGroup.children,
                     visible: true,
                     originalGeometries: mainGroup.children.map(mesh => mesh.geometry.clone()),
-                    color: color
+                    color: color,
+                    unit: unit
                 };
 
                 models.push(modelData);
@@ -860,7 +891,7 @@
                             <div class="color-indicator" style="background-color: ${colorInfo.hex}"></div>
                             <div class="flex-grow">
                                 ${model.name}
-                                <div class="color-name"><span data-i18n="colorLabel">צבע</span>: ${colorInfo.name}</div>
+                                <div class="color-name"><span data-i18n="colorLabel">צבע</span>: ${colorInfo.name} &nbsp;|&nbsp; 📐 ${model.unit || '?'}</div>
                             </div>
                         </div>
                         <div class="model-date">${model.date}</div>
@@ -1042,35 +1073,132 @@
             });
         }
 
+        // ===== יחידות מידה =====
+        const UNIT_TO_METERS = { mm: 0.001, cm: 0.01, m: 1, inch: 0.0254, ft: 0.3048 };
+        let pendingFiles = [];
+        let pendingColors = [];
+
         document.getElementById('fileInput').addEventListener('change', async (e) => {
-            const files = e.target.files;
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            if (!scene) initThreeJS();
+            e.target.value = '';
+
+            const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
+            pendingFiles = files;
+            pendingColors = files.map((_, i) => colors[(models.length + i) % colors.length]);
+
+            // GLB/GLTF תמיד מטר — רק STL/OBJ שאינם aligned צריכים שאלה
+            const needsUnits = files.filter(f => {
+                const ext = f.name.split('.').pop().toLowerCase();
+                return (ext === 'stl' || ext === 'obj');
+            });
+
+            if (needsUnits.length === 0) {
+                // הכל GLB/GLTF — טען ישירות
+                await loadPendingFiles('m');
+                return;
+            }
+
+            // בנה תיאור
+            const glbCount = files.length - needsUnits.length;
+            let desc = `העלית ${files.length} קבצים.`;
+            if (glbCount > 0) desc += ` ${glbCount} קבצי GLB/GLTF יוגדרו אוטומטית כמטר.`;
+            desc += ` בחר יחידת מידה עבור ${needsUnits.map(f=>f.name).join(', ')}:`;
+            document.getElementById('unitsModalDesc').textContent = desc;
+
+            // הכן רשימת per-model (תוצג רק אם יש פער גדול)
+            const perList = document.getElementById('unitsPerModelList');
+            perList.innerHTML = '';
+            needsUnits.forEach(f => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px;';
+                row.innerHTML = `
+                    <span style="flex:1;font-size:0.85em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>
+                    <select data-filename="${f.name}" style="padding:5px;border-radius:5px;background:#2a2a3e;color:#eee;border:1px solid #555;font-size:0.85em;">
+                        <option value="mm">mm</option>
+                        <option value="cm">cm</option>
+                        <option value="m" selected>m</option>
+                        <option value="inch">inch</option>
+                        <option value="ft">ft</option>
+                    </select>`;
+                perList.appendChild(row);
+            });
+
+            // בדוק אם צריך להציג אזהרת פער גדול — על בסיס גודל קובץ כ-proxy גס
+            // (גודל אמיתי נבדק אחרי טעינה — כאן נציג תמיד האפשרות)
+            document.getElementById('unitsPerModelSection').style.display = needsUnits.length > 1 ? 'block' : 'none';
+
+            const modal = document.getElementById('unitsModal');
+            modal.style.display = 'flex';
+        });
+
+        async function confirmUnits() {
+            document.getElementById('unitsModal').style.display = 'none';
+            const globalUnit = document.getElementById('unitsGlobalSelect').value;
+
+            // בנה מפה: שם קובץ → יחידה
+            const perModelUnits = {};
+            document.querySelectorAll('#unitsPerModelList select').forEach(sel => {
+                perModelUnits[sel.dataset.filename] = sel.value;
+            });
+
+            await loadPendingFiles(globalUnit, perModelUnits);
+        }
+
+        async function loadPendingFiles(defaultUnit, perModelUnits = {}) {
             const uploadBox = document.getElementById('uploadBox');
             const loadingMsg = document.getElementById('loadingMessage');
-            
-            if (files.length === 0) return;
-            
-            if (!scene) initThreeJS();
-            
             uploadBox.classList.add('loading');
             loadingMsg.classList.remove('hidden');
-            loadingMsg.textContent = 'טוען מודלים...';
-            
-            const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
-            
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+
+            const loadedModels = [];
+            for (let i = 0; i < pendingFiles.length; i++) {
+                const file = pendingFiles[i];
+                const color = pendingColors[i];
+                const ext = file.name.split('.').pop().toLowerCase();
+
+                // GLB/GLTF = מטר תמיד
+                let unit;
+                if (ext === 'glb' || ext === 'gltf') {
+                    unit = 'm';
+                } else {
+                    unit = perModelUnits[file.name] || defaultUnit;
+                }
+
                 try {
                     loadingMsg.textContent = `טוען ${file.name}...`;
-                    await addModelFromFile(file, colors[models.length % colors.length]);
+                    const model = await addModelFromFile(file, color, unit);
+                    if (model) loadedModels.push({ model, unit });
                 } catch (error) {
                     alert(`שגיאה בטעינת ${file.name}: ${error.message}`);
                 }
             }
-            
+
             uploadBox.classList.remove('loading');
             loadingMsg.classList.add('hidden');
-            e.target.value = '';
-        });
+
+            // בדוק פערי גודל בין מודלים שנטענו עכשיו (ומודלים קיימים)
+            checkSizeDiscrepancy(loadedModels);
+        }
+
+        function checkSizeDiscrepancy(newlyLoaded) {
+            if (models.length < 2) return;
+            const sizes = models.map(m => {
+                const box = new THREE.Box3().setFromObject(m.group);
+                const s = new THREE.Vector3(); box.getSize(s);
+                return { id: m.id, name: m.name, size: Math.max(s.x, s.y, s.z), unit: m.unit };
+            });
+            const allSizes = sizes.map(s => s.size);
+            const median = allSizes.slice().sort((a,b)=>a-b)[Math.floor(allSizes.length/2)];
+            const outliers = sizes.filter(s => s.size > median * 9 || s.size < median / 9);
+            if (outliers.length > 0) {
+                const names = outliers.map(o => `"${o.name}"`).join(', ');
+                setTimeout(() => {
+                    alert(`⚠️ נמצא הבדל גדול בגודל:\n${names} ${outliers.length===1?'גדול/קטן':'גדולים/קטנים'} בצורה חריגה ביחס לשאר.\n\nייתכן שיחידות המידה שגויות. תוכל למחוק ולהעלות שוב עם יחידה אחרת.`);
+                }, 300);
+            }
+        }
 
         document.getElementById('cutY').addEventListener('input', (e) => {
             const value = e.target.value;
