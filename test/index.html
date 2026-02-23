@@ -1559,14 +1559,15 @@
                 return null;
             }
 
+            // Force update of ALL world matrices from scene root so position/rotation/scale are current
+            if (scene) scene.updateMatrixWorld(true);
+
             const allPositions = [];
             const allNormals = [];
             const allIndices = [];
             let indexOffset = 0;
 
             visibleModels.forEach(model => {
-                // Update world matrix
-                model.group.updateMatrixWorld(true);
                 const worldMatrix = model.group.matrixWorld;
                 const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldMatrix);
 
