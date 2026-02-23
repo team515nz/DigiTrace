@@ -157,12 +157,15 @@
                             </div>
                         </div>
                         <!-- ruler overlay -->
-                        <div id="rulerOverlay" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.9em;pointer-events:none;z-index:10;white-space:nowrap;"></div>
+                        <!-- ruler overlay moved to body level -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+<!-- ruler overlay - outside all modals so it's always on top -->
+<div id="rulerOverlay" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.9em;pointer-events:none;z-index:10000;white-space:nowrap;"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -231,6 +234,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         let scene, camera, renderer;
+        let rulerScene; // separate scene rendered on top of everything for ruler
         let models = [];
         let modelCounter = 0;
         let globalBoundingBox = null;
@@ -293,6 +297,9 @@
             floor.rotation.x = Math.PI / 2;
             floor.position.y = -2;
             scene.add(floor);
+
+            // Separate overlay scene for ruler — always renders on top
+            rulerScene = new THREE.Scene();
 
             raycaster = new THREE.Raycaster();
             
@@ -385,7 +392,17 @@
         function animate() {
             requestAnimationFrame(animate);
             if (renderer && scene && camera) {
+                // Render main scene
+                renderer.autoClear = true;
                 renderer.render(scene, camera);
+                // Render ruler scene on top: clear only depth buffer so ruler
+                // always appears above all 3D models ("top layer")
+                if (rulerScene) {
+                    renderer.autoClear = false;
+                    renderer.clearDepth();
+                    renderer.render(rulerScene, camera);
+                    renderer.autoClear = true;
+                }
             }
         }
 
@@ -1099,6 +1116,7 @@
         // ===== סרגל קנה מידה =====
         let rulerState = {
             active: false,
+            finished: false, // true after measurement complete, waiting for user to dismiss
             points: [],      // THREE.Vector3 world points
             markers: [],     // sphere meshes in scene
             line: null,      // THREE.Line object
@@ -1114,11 +1132,12 @@
         }
 
         function toggleRuler() {
-            if (rulerState.active) {
+            if (rulerState.active || rulerState.finished) {
                 cancelRuler();
             } else {
                 if (!scene) { alert('העלה מודל תחילה'); return; }
                 rulerState.active = true;
+                rulerState.finished = false;
                 rulerState.points = [];
                 clearRulerObjects();
                 setRulerBtnStyle(true, false);
@@ -1129,6 +1148,7 @@
 
         function cancelRuler() {
             rulerState.active = false;
+            rulerState.finished = false;
             clearRulerObjects();
             setRulerBtnStyle(false, false);
             document.getElementById('canvas-container').style.cursor = '';
@@ -1136,10 +1156,45 @@
         }
 
         function clearRulerObjects() {
-            rulerState.markers.forEach(m => scene && scene.remove(m));
+            rulerState.markers.forEach(m => rulerScene && rulerScene.remove(m));
             rulerState.markers = [];
-            if (rulerState.line) { scene && scene.remove(rulerState.line); rulerState.line = null; }
+            if (rulerState.line) { rulerScene && rulerScene.remove(rulerState.line); rulerState.line = null; }
             rulerState.points = [];
+        }
+
+        function restorePendingRuler() {
+            const saved = window._pendingRulerRestore;
+            if (!saved || !rulerScene) return;
+            window._pendingRulerRestore = null;
+            try {
+                const pts = saved.points.map(p => new THREE.Vector3(p.x, p.y, p.z));
+                clearRulerObjects();
+
+                pts.forEach(point => {
+                    const sphereGeo = new THREE.SphereGeometry(0.06, 12, 12);
+                    const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false, depthWrite: false });
+                    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+                    sphere.position.copy(point);
+                    rulerScene.add(sphere);
+                    rulerState.markers.push(sphere);
+                    rulerState.points.push(point);
+                });
+
+                if (pts.length === 2) {
+                    const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 2, depthTest: false, depthWrite: false });
+                    rulerState.line = new THREE.Line(lineGeo, lineMat);
+                    rulerScene.add(rulerState.line);
+                }
+
+                rulerState.modelUnit = saved.modelUnit || 'm';
+                rulerState.active = false;
+                rulerState.finished = true;
+                setRulerBtnStyle(false, true);
+                if (saved.displayText) showRulerOverlay(saved.displayText);
+            } catch(e) {
+                console.warn('restorePendingRuler error:', e);
+            }
         }
 
         function showRulerOverlay(text) {
@@ -1179,12 +1234,11 @@
             hitUnit = (hit.object._modelRef && hit.object._modelRef.unit) || 'm';
 
             // add small sphere marker — rendered on top of everything
-            const sphereGeo = new THREE.SphereGeometry(0.05, 8, 8);
-            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false });
+            const sphereGeo = new THREE.SphereGeometry(0.06, 12, 12);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false, depthWrite: false });
             const sphere = new THREE.Mesh(sphereGeo, sphereMat);
             sphere.position.copy(point);
-            sphere.renderOrder = 999;
-            scene.add(sphere);
+            rulerScene.add(sphere); // renders on top of all models
             rulerState.markers.push(sphere);
             rulerState.points.push(point);
 
@@ -1194,10 +1248,9 @@
             } else if (rulerState.points.length === 2) {
                 // draw line — rendered on top of everything
                 const lineGeo = new THREE.BufferGeometry().setFromPoints(rulerState.points);
-                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, depthTest: false });
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 2, depthTest: false, depthWrite: false });
                 rulerState.line = new THREE.Line(lineGeo, lineMat);
-                rulerState.line.renderOrder = 999;
-                scene.add(rulerState.line);
+                rulerScene.add(rulerState.line); // renders on top of all models
 
                 // calculate distance in 3D scene units, then convert to real units
                 const distScene = rulerState.points[0].distanceTo(rulerState.points[1]);
@@ -1223,6 +1276,7 @@
 
                 // keep active=false so user can rotate, but keep display
                 rulerState.active = false;
+                rulerState.finished = true;
                 setRulerBtnStyle(false, true);
                 document.getElementById('canvas-container').style.cursor = '';
             }
@@ -2617,7 +2671,7 @@
         function openIDB() {
             return new Promise((resolve, reject) => {
                 if (_idb) return resolve(_idb);
-                const req = indexedDB.open(IDB_NAME, 1);
+                const req = indexedDB.open(IDB_NAME, 2); // v2: fixed 16-byte aligned header
                 req.onupgradeneeded = e => {
                     const db = e.target.result;
                     if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath: 'name' });
@@ -2668,52 +2722,64 @@
         }
 
         // שמור geometry כ-ArrayBuffer ב-IndexedDB
+        // Header (16 bytes, 4-byte aligned): posLen(4) normLen(4) idxLen(4) flag(1) pad(3)
+        // Data starts at offset 16 → always 4-byte aligned for Float32Array views
         function geometryToArrayBuffer(geometry) {
             const positions = geometry.attributes.position.array;
-            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
-            const indices = geometry.index ? geometry.index.array : null;
+            const normals   = geometry.attributes.normal ? geometry.attributes.normal.array : null;
+            const indices   = geometry.index ? geometry.index.array : null;
 
-            const posLen = positions.length;
-            const normLen = normals ? normals.length : 0;
-            const idxLen = indices ? indices.length : 0;
+            const posLen   = positions.length;
+            const normLen  = normals  ? normals.length  : 0;
+            const idxLen   = indices  ? indices.length  : 0;
+            const idxIsU32 = !!(indices && idxLen > 65535);
 
-            // header: 3 ints (posLen, normLen, idxLen)
-            const header = new Int32Array([posLen, normLen, idxLen]);
-            const posBytes = new Float32Array(positions);
+            const HEADER = 16; // 4-byte aligned
+            const posBytes  = new Float32Array(positions);
             const normBytes = normals ? new Float32Array(normals) : new Float32Array(0);
-            const idxBytes = indices ? (idxLen > 65535 ? new Uint32Array(indices) : new Uint16Array(indices)) : new Uint16Array(0);
-            const idxIsU32 = indices && idxLen > 65535;
-            const flagArr = new Uint8Array([idxIsU32 ? 1 : 0]);
+            const idxBytes  = idxLen > 0
+                ? (idxIsU32 ? new Uint32Array(indices) : new Uint16Array(indices))
+                : new Uint16Array(0);
 
-            const totalBytes = 12 + 1 + posBytes.byteLength + normBytes.byteLength + idxBytes.byteLength;
-            const buf = new ArrayBuffer(totalBytes);
+            const totalBytes = HEADER + posBytes.byteLength + normBytes.byteLength + idxBytes.byteLength;
+            const buf  = new ArrayBuffer(totalBytes); // zero-filled
             const view = new Uint8Array(buf);
-            let offset = 0;
-            view.set(new Uint8Array(header.buffer), offset); offset += 12;
-            view.set(flagArr, offset); offset += 1;
-            view.set(new Uint8Array(posBytes.buffer), offset); offset += posBytes.byteLength;
+
+            new Int32Array(buf, 0, 3).set([posLen, normLen, idxLen]);
+            new Uint8Array(buf, 12, 1)[0] = idxIsU32 ? 1 : 0;
+
+            let offset = HEADER;
+            view.set(new Uint8Array(posBytes.buffer),  offset); offset += posBytes.byteLength;
             if (normBytes.byteLength) { view.set(new Uint8Array(normBytes.buffer), offset); offset += normBytes.byteLength; }
             if (idxBytes.byteLength)  { view.set(new Uint8Array(idxBytes.buffer),  offset); }
             return buf;
         }
 
         function arrayBufferToGeometry(buf) {
-            const headerView = new Int32Array(buf, 0, 3);
-            const [posLen, normLen, idxLen] = headerView;
-            const flag = new Uint8Array(buf, 12, 1)[0];
-            let offset = 13;
+            const posLen  = new Int32Array(buf, 0, 1)[0];
+            const normLen = new Int32Array(buf, 4, 1)[0];
+            const idxLen  = new Int32Array(buf, 8, 1)[0];
+            const flag    = new Uint8Array(buf, 12, 1)[0];
 
-            const positions = new Float32Array(buf, offset, posLen); offset += posLen * 4;
-            const normals = normLen > 0 ? new Float32Array(buf, offset, normLen) : null; if (normLen) offset += normLen * 4;
-            let indices = null;
+            // Auto-detect header: old format=13 bytes (misaligned), new format=16 bytes (aligned)
+            const expectedOld = 13 + posLen*4 + normLen*4 + idxLen*(flag?4:2);
+            const HEADER = (buf.byteLength === expectedOld) ? 13 : 16;
+
+            let offset = HEADER;
+            const posData = new Float32Array(buf.slice(offset, offset + posLen * 4)); offset += posLen * 4;
+            let normData = null;
+            if (normLen > 0) { normData = new Float32Array(buf.slice(offset, offset + normLen * 4)); offset += normLen * 4; }
+            let idxData = null;
             if (idxLen > 0) {
-                indices = flag ? new Uint32Array(buf, offset, idxLen) : new Uint16Array(buf, offset, idxLen);
+                const bytes = idxLen * (flag ? 4 : 2);
+                const slice = buf.slice(offset, offset + bytes);
+                idxData = flag ? new Uint32Array(slice) : new Uint16Array(slice);
             }
 
             const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3));
-            if (normals) geo.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(normals), 3));
-            if (indices) geo.setIndex(new THREE.BufferAttribute(flag ? new Uint32Array(indices) : new Uint16Array(indices), 1));
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(posData, 3));
+            if (normData) geo.setAttribute('normal', new THREE.Float32BufferAttribute(normData, 3));
+            if (idxData)  geo.setIndex(new THREE.BufferAttribute(idxData, 1));
             return geo;
         }
 
@@ -2745,6 +2811,11 @@
                         cutZ: document.getElementById('cutZ').value
                     },
                     exportFormat: document.getElementById('exportFormat').value,
+                    ruler: rulerState.finished ? {
+                        points: rulerState.points.map(p => ({ x: p.x, y: p.y, z: p.z })),
+                        modelUnit: rulerState.modelUnit,
+                        displayText: document.getElementById('rulerOverlay').textContent
+                    } : null,
                     models: models.map(m => ({
                         name: m.name,
                         date: m.date,
@@ -2762,7 +2833,9 @@
                 const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
                 const mini = { cutY: session.sliders.cutY, cutX: session.sliders.cutX, cutZ: session.sliders.cutZ,
                                camH: cameraRotation.horizontal.toFixed(1), camV: cameraRotation.vertical.toFixed(1),
-                               camD: cameraDistance.toFixed(2), fmt: session.exportFormat };
+                               camD: cameraDistance.toFixed(2), fmt: session.exportFormat,
+                               zoom: cameraDistance.toFixed(3),
+                               rulerTxt: session.ruler ? session.ruler.displayText : null };
                 document.cookie = `digitrace=${encodeURIComponent(JSON.stringify(mini))};expires=${expires};path=/;SameSite=Lax`;
             } catch(e) {
                 console.warn('saveSession error:', e);
@@ -2795,7 +2868,16 @@
 
                 if (session.exportFormat) document.getElementById('exportFormat').value = session.exportFormat;
 
-                if (!session.models || session.models.length === 0) return true;
+                // שחזר סרגל שמור
+                if (session.ruler && session.ruler.points && session.ruler.points.length === 2) {
+                    // נשחזר אחרי שה-scene מוכן — נכניס לתור
+                    window._pendingRulerRestore = session.ruler;
+                }
+
+                if (!session.models || session.models.length === 0) {
+                    restorePendingRuler();
+                    return true;
+                }
 
                 // שחזר geometry מ-IndexedDB
                 const idbRecords = await idbGetAll();
@@ -2858,9 +2940,10 @@
                 loadingMsg.classList.add('hidden');
                 updateModelList();
                 calculateGlobalBoundingBox();
+                // שחזר זום שמור — לא לקרוא ל-adjustCameraToModel כי הוא מדרס את cameraDistance
                 updateCameraPosition();
                 applyCuts();
-                adjustCameraToModel();
+                restorePendingRuler();
                 return true;
             } catch(e) {
                 console.warn('restoreFullSession error:', e);
