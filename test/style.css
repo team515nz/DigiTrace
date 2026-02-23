@@ -219,12 +219,18 @@ body.rtl .lang-switcher {
     border-bottom: 2px solid #8B4513;
     flex-shrink: 0;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.controls-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .fullscreen-btn {
-    position: absolute;
-    top: 15px;
-    left: 15px;
     background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
     color: white;
     border: none;
@@ -235,6 +241,7 @@ body.rtl .lang-switcher {
     font-weight: bold;
     transition: all 0.3s;
     z-index: 10;
+    flex-shrink: 0;
 }
 
 .fullscreen-btn:hover {
@@ -269,16 +276,23 @@ body.rtl .lang-switcher {
     top: 20px;
     right: 20px;
     background: rgba(255, 248, 240, 0.95);
-    padding: 20px;
+    padding: 12px;
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     z-index: 1000;
-    max-width: 300px;
+    width: 220px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
     backdrop-filter: blur(10px);
 }
 
 .fullscreen-controls.active {
     display: block;
+}
+
+/* שפה — מוסתרת במסך מלא */
+.fullscreen-mode .lang-switcher {
+    display: none;
 }
 
 .close-fullscreen {
@@ -1031,9 +1045,6 @@ body.rtl .lang-switcher {
     }
 
     .fullscreen-btn {
-        position: static;
-        width: 100%;
-        margin-bottom: 10px;
         padding: 8px 15px;
         font-size: 0.85em;
     }
