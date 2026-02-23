@@ -41,7 +41,7 @@
                 </div>
 
                 <div class="upload-section hidden" id="downloadSection">
-                    <h3 data-i18n="downloadModel">📥 הורדת מודל משולב</h3>
+                    <h3 data-i18n="downloadModel">📥 הורדת מודלים</h3>
                     <div class="download-box">
                         <select id="exportFormat" class="format-select">
                             <option value="stl">STL</option>
@@ -51,6 +51,9 @@
                         </select>
                         <button class="download-btn" onclick="downloadCombinedModel()">
                             📥 הורד מודל משולב
+                        </button>
+                        <button class="download-btn" style="background:#5a8a5a;margin-top:6px" onclick="downloadAllSeparate()">
+                            📥 הורד כל מודל בנפרד (מיושר)
                         </button>
                     </div>
                 </div>
@@ -752,6 +755,7 @@
                 }
 
                 const mainGroup = new THREE.Group();
+                const isAligned = file.name.startsWith('aligned_');
 
                 geometries.forEach((geometry, index) => {
                     if (!geometry || !geometry.attributes.position) {
@@ -759,7 +763,9 @@
                         return;
                     }
 
-                    geometry.center();
+                    if (!isAligned) {
+                        geometry.center();
+                    }
                     geometry.computeBoundingBox();
                     
                     const material = new THREE.MeshStandardMaterial({ 
@@ -778,18 +784,18 @@
                     throw new Error('לא נמצאו meshes תקינים');
                 }
 
-                const box = new THREE.Box3().setFromObject(mainGroup);
-                const size = new THREE.Vector3();
-                box.getSize(size);
-                const maxDim = Math.max(size.x, size.y, size.z);
-                
-                if (maxDim > 0) {
-                    const targetSize = 4;
-                    const scale = targetSize / maxDim;
-                    mainGroup.scale.set(scale, scale, scale);
+                if (!isAligned) {
+                    const box = new THREE.Box3().setFromObject(mainGroup);
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    if (maxDim > 0) {
+                        const targetSize = 4;
+                        const scale = targetSize / maxDim;
+                        mainGroup.scale.set(scale, scale, scale);
+                    }
+                    mainGroup.position.y = 0;
                 }
-
-                mainGroup.position.y = 0;
                 scene.add(mainGroup);
 
                 const modelData = {
@@ -2199,6 +2205,77 @@
             originalUpdateModelList();
             updateDownloadSection();
         };
+
+        function triggerDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        }
+
+        function getSingleModelGeometry(model) {
+            if (scene) scene.updateMatrixWorld(true);
+            const allPositions = [];
+            const allNormals = [];
+            const allIndices = [];
+            let indexOffset = 0;
+            const worldMatrix = model.group.matrixWorld;
+            const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldMatrix);
+            const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
+            meshes.forEach(mesh => {
+                if (!mesh.visible) return;
+                const geometry = mesh.geometry;
+                if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
+                const positions = geometry.attributes.position.array;
+                if (!positions || positions.length === 0) return;
+                const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
+                for (let i = 0; i < positions.length; i += 3) {
+                    const vertex = new THREE.Vector3(positions[i], positions[i+1], positions[i+2]);
+                    vertex.applyMatrix4(worldMatrix);
+                    allPositions.push(vertex.x, vertex.y, vertex.z);
+                    if (normals) {
+                        const normal = new THREE.Vector3(normals[i], normals[i+1], normals[i+2]);
+                        normal.applyMatrix3(normalMatrix).normalize();
+                        allNormals.push(normal.x, normal.y, normal.z);
+                    }
+                }
+                if (geometry.index) {
+                    const indices = geometry.index.array;
+                    for (let i = 0; i < indices.length; i++) allIndices.push(indices[i] + indexOffset);
+                } else {
+                    for (let i = 0; i < positions.length / 3; i++) allIndices.push(i + indexOffset);
+                }
+                indexOffset += positions.length / 3;
+            });
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
+            if (allNormals.length > 0) geo.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
+            if (allIndices.length > 0) geo.setIndex(allIndices);
+            return geo;
+        }
+
+        async function downloadAllSeparate() {
+            const visibleModels = models.filter(m => m.visible);
+            if (visibleModels.length === 0) { alert('אין מודלים גלויים להורדה'); return; }
+            const format = document.getElementById('exportFormat').value;
+            for (const model of visibleModels) {
+                const geo = getSingleModelGeometry(model);
+                const baseName = model.name.replace(/\.[^.]+$/, '');
+                let blob, ext;
+                switch (format) {
+                    case 'stl': blob = exportToSTL(geo); ext = 'stl'; break;
+                    case 'obj': blob = exportToOBJ(geo); ext = 'obj'; break;
+                    case 'glb': blob = exportToGLTF(geo, true); ext = 'glb'; break;
+                    case 'gltf': blob = exportToGLTF(geo, false); ext = 'gltf'; break;
+                }
+                triggerDownload(blob, `aligned_${baseName}.${ext}`);
+                await new Promise(r => setTimeout(r, 300));
+            }
+        }
 
 </script>
     <script src="translations.js"></script>
