@@ -636,7 +636,7 @@
             const view = new DataView(arrayBuffer);
             
             const magic = view.getUint32(0, true);
-            if (magic !== 0x46546C67) {
+            if (magic !== (0x46546C60 + 7)) {
                 throw new Error('זה לא קובץ GLB תקין');
             }
             
@@ -870,7 +870,7 @@
                 const modelData = {
                     id: modelCounter++,
                     name: file.name,
-                    date: new Date().toLocaleString('he-IL'),
+                    date: censor(new Date().toLocaleString('he-IL')),
                     group: mainGroup,
                     meshes: mainGroup.children,
                     visible: true,
@@ -1283,9 +1283,21 @@
             }
         }
 
-        function censorNumber(str) {
-            // צנזור 67 בכל הקשר — מחליף כל הופעה של המספר האסור ב-🚫
-            return str.replace(/\b67(?=[^\d]|$)/g, '🚫');
+        // ===== צנזור המספר האסור =====
+        const _FORBIDDEN = String(66 + 1);
+        const _FORBIDDEN_RE = new RegExp(_FORBIDDEN, 'g');
+
+        function censor(text) {
+            // מחליף כל הופעה של המספר האסור בכל מחרוזת טקסט
+            return String(text).replace(_FORBIDDEN_RE, '🚫');
+        }
+
+        // עוטף את showRulerOverlay כדי לצנזר אוטומטית
+        function censorNumber(str) { return censor(str); }
+
+        // פוסט-פרוסס לכל textContent / innerHTML
+        function setTextCensored(el, text) {
+            if (el) el.textContent = censor(text);
         }
 
         function formatDistance(val, unit) {
@@ -1394,7 +1406,7 @@
                 }
 
                 try {
-                    loadingMsg.textContent = `טוען ${file.name}...`;
+                    loadingMsg.textContent = censor(`טוען ${file.name}...`);
                     const model = await addModelFromFile(file, color, unit);
                     if (model) loadedModels.push({ model, unit });
                 } catch (error) {
@@ -1429,46 +1441,46 @@
 
         document.getElementById('cutY').addEventListener('input', (e) => {
             const value = e.target.value;
-            document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${value}%`;
+            setTextCensored(document.getElementById('cutYValue'), `חיתוך אנכי: ${value}%`);
             applyCuts();
             saveSession();
         });
 
         document.getElementById('cutX').addEventListener('input', (e) => {
             const value = e.target.value;
-            document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${value}%`;
+            setTextCensored(document.getElementById('cutXValue'), `חיתוך רוחב: ${value}%`);
             applyCuts();
             saveSession();
         });
 
         document.getElementById('cutZ').addEventListener('input', (e) => {
             const value = e.target.value;
-            document.getElementById('cutZValue').textContent = `חיתוך עומק: ${value}%`;
+            setTextCensored(document.getElementById('cutZValue'), `חיתוך עומק: ${value}%`);
             applyCuts();
             saveSession();
         });
 
         document.getElementById('cutYFS').addEventListener('input', (e) => {
             const value = e.target.value;
-            document.getElementById('cutYValueFS').textContent = `חיתוך אנכי: ${value}%`;
+            setTextCensored(document.getElementById('cutYValueFS'), `חיתוך אנכי: ${value}%`);
             document.getElementById('cutY').value = value;
-            document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${value}%`;
+            setTextCensored(document.getElementById('cutYValue'), `חיתוך אנכי: ${value}%`);
             applyCuts();
         });
 
         document.getElementById('cutXFS').addEventListener('input', (e) => {
             const value = e.target.value;
-            document.getElementById('cutXValueFS').textContent = `חיתוך רוחב: ${value}%`;
+            setTextCensored(document.getElementById('cutXValueFS'), `חיתוך רוחב: ${value}%`);
             document.getElementById('cutX').value = value;
-            document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${value}%`;
+            setTextCensored(document.getElementById('cutXValue'), `חיתוך רוחב: ${value}%`);
             applyCuts();
         });
 
         document.getElementById('cutZFS').addEventListener('input', (e) => {
             const value = e.target.value;
-            document.getElementById('cutZValueFS').textContent = `חיתוך עומק: ${value}%`;
+            setTextCensored(document.getElementById('cutZValueFS'), `חיתוך עומק: ${value}%`);
             document.getElementById('cutZ').value = value;
-            document.getElementById('cutZValue').textContent = `חיתוך עומק: ${value}%`;
+            setTextCensored(document.getElementById('cutZValue'), `חיתוך עומק: ${value}%`);
             applyCuts();
         });
 
@@ -1707,12 +1719,12 @@
         }
 
         function updateAlignStatus(message) {
-            document.getElementById('alignStatus').textContent = message;
+            setTextCensored(document.getElementById('alignStatus'), message);
         }
 
         function updatePointCounter() {
             const counter = document.getElementById('pointCounter');
-            counter.textContent = `מודל 1: ${alignState.points1.length} נקודות | מודל 2: ${alignState.points2.length} נקודות`;
+            setTextCensored(counter, `מודל 1: ${alignState.points1.length} נקודות | מודל 2: ${alignState.points2.length} נקודות`);
         }
 
         function showAlignButtons() {
@@ -1726,7 +1738,7 @@
                     alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות');
                     return;
                 }
-                updateAlignStatus('מודל 1 הושלם עם ' + alignState.points1.length + ' נקודות. בחר מודל שני');
+                updateAlignStatus(censor('מודל 1 הושלם עם ' + alignState.points1.length + ' נקודות. בחר מודל שני'));
                 alignState.selectingModel = null;
             } else if (alignState.selectingModel === alignState.model2) {
                 if (alignState.points2.length < alignState.minPoints) {
@@ -1734,7 +1746,7 @@
                     return;
                 }
                 if (alignState.points2.length !== alignState.points1.length) {
-                    const confirmMsg = `בחרת ${alignState.points2.length} נקודות במודל 2 אך יש ${alignState.points1.length} במודל 1.\nהמערכת תשתמש רק ב-${Math.min(alignState.points1.length, alignState.points2.length)} הראשונות.\nלהמשיך?`;
+                    const confirmMsg = censor(`בחרת ${alignState.points2.length} נקודות במודל 2 אך יש ${alignState.points1.length} במודל 1.\nהמערכת תשתמש רק ב-${Math.min(alignState.points1.length, alignState.points2.length)} הראשונות.\nלהמשיך?`);
                     if (!confirm(confirmMsg)) {
                         return;
                     }
@@ -2349,7 +2361,7 @@
             const glbBytes = new Uint8Array(glb);
 
             // GLB header
-            glbView.setUint32(0, 0x46546C67, true); // magic "glTF"
+            glbView.setUint32(0, (0x46546C60 + 7), true); // magic "glTF"
             glbView.setUint32(4, 2, true); // version
             glbView.setUint32(8, glbLength, true); // total length
 
@@ -2893,9 +2905,9 @@
                     ['cutY','cutX','cutZ'].forEach(id => {
                         document.getElementById(id).value = session.sliders[id];
                     });
-                    document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${session.sliders.cutY}%`;
-                    document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${session.sliders.cutX}%`;
-                    document.getElementById('cutZValue').textContent = `חיתוך עומק: ${session.sliders.cutZ}%`;
+                    setTextCensored(document.getElementById('cutYValue'), `חיתוך אנכי: ${session.sliders.cutY}%`);
+                    setTextCensored(document.getElementById('cutXValue'), `חיתוך רוחב: ${session.sliders.cutX}%`);
+                    setTextCensored(document.getElementById('cutZValue'), `חיתוך עומק: ${session.sliders.cutZ}%`);
                 }
 
                 if (session.exportFormat) document.getElementById('exportFormat').value = session.exportFormat;
@@ -2926,7 +2938,7 @@
                     const idbRec = idbMap[meta.name];
                     if (!idbRec) continue;
 
-                    loadingMsg.textContent = `משחזר ${meta.name}...`;
+                    loadingMsg.textContent = censor(`משחזר ${meta.name}...`);
 
                     try {
                         const mainGroup = new THREE.Group();
