@@ -1162,6 +1162,41 @@
             rulerState.points = [];
         }
 
+        function restorePendingRuler() {
+            const saved = window._pendingRulerRestore;
+            if (!saved || !rulerScene) return;
+            window._pendingRulerRestore = null;
+            try {
+                const pts = saved.points.map(p => new THREE.Vector3(p.x, p.y, p.z));
+                clearRulerObjects();
+
+                pts.forEach(point => {
+                    const sphereGeo = new THREE.SphereGeometry(0.06, 12, 12);
+                    const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false, depthWrite: false });
+                    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+                    sphere.position.copy(point);
+                    rulerScene.add(sphere);
+                    rulerState.markers.push(sphere);
+                    rulerState.points.push(point);
+                });
+
+                if (pts.length === 2) {
+                    const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 2, depthTest: false, depthWrite: false });
+                    rulerState.line = new THREE.Line(lineGeo, lineMat);
+                    rulerScene.add(rulerState.line);
+                }
+
+                rulerState.modelUnit = saved.modelUnit || 'm';
+                rulerState.active = false;
+                rulerState.finished = true;
+                setRulerBtnStyle(false, true);
+                if (saved.displayText) showRulerOverlay(saved.displayText);
+            } catch(e) {
+                console.warn('restorePendingRuler error:', e);
+            }
+        }
+
         function showRulerOverlay(text) {
             const el = document.getElementById('rulerOverlay');
             el.style.display = 'block';
@@ -2776,6 +2811,11 @@
                         cutZ: document.getElementById('cutZ').value
                     },
                     exportFormat: document.getElementById('exportFormat').value,
+                    ruler: rulerState.finished ? {
+                        points: rulerState.points.map(p => ({ x: p.x, y: p.y, z: p.z })),
+                        modelUnit: rulerState.modelUnit,
+                        displayText: document.getElementById('rulerOverlay').textContent
+                    } : null,
                     models: models.map(m => ({
                         name: m.name,
                         date: m.date,
@@ -2793,7 +2833,9 @@
                 const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
                 const mini = { cutY: session.sliders.cutY, cutX: session.sliders.cutX, cutZ: session.sliders.cutZ,
                                camH: cameraRotation.horizontal.toFixed(1), camV: cameraRotation.vertical.toFixed(1),
-                               camD: cameraDistance.toFixed(2), fmt: session.exportFormat };
+                               camD: cameraDistance.toFixed(2), fmt: session.exportFormat,
+                               zoom: cameraDistance.toFixed(3),
+                               rulerTxt: session.ruler ? session.ruler.displayText : null };
                 document.cookie = `digitrace=${encodeURIComponent(JSON.stringify(mini))};expires=${expires};path=/;SameSite=Lax`;
             } catch(e) {
                 console.warn('saveSession error:', e);
@@ -2826,7 +2868,16 @@
 
                 if (session.exportFormat) document.getElementById('exportFormat').value = session.exportFormat;
 
-                if (!session.models || session.models.length === 0) return true;
+                // שחזר סרגל שמור
+                if (session.ruler && session.ruler.points && session.ruler.points.length === 2) {
+                    // נשחזר אחרי שה-scene מוכן — נכניס לתור
+                    window._pendingRulerRestore = session.ruler;
+                }
+
+                if (!session.models || session.models.length === 0) {
+                    restorePendingRuler();
+                    return true;
+                }
 
                 // שחזר geometry מ-IndexedDB
                 const idbRecords = await idbGetAll();
@@ -2892,6 +2943,7 @@
                 updateCameraPosition();
                 applyCuts();
                 adjustCameraToModel();
+                restorePendingRuler();
                 return true;
             } catch(e) {
                 console.warn('restoreFullSession error:', e);
