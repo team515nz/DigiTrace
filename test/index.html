@@ -2940,9 +2940,9 @@
                 loadingMsg.classList.add('hidden');
                 updateModelList();
                 calculateGlobalBoundingBox();
+                // שחזר זום שמור — לא לקרוא ל-adjustCameraToModel כי הוא מדרס את cameraDistance
                 updateCameraPosition();
                 applyCuts();
-                adjustCameraToModel();
                 restorePendingRuler();
                 return true;
             } catch(e) {
