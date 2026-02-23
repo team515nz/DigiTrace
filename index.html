@@ -58,6 +58,35 @@
                     </div>
                 </div>
 
+                <!-- נקודות יישור קבועות -->
+                <div class="upload-section" id="anchorSection">
+                    <h3>📌 נקודות יישור קבועות</h3>
+                    <div style="font-size:0.82em;color:#aaa;margin-bottom:8px;">
+                        בחר נקודות על מודל בסיס — כל מודל חדש יתיישר אליהן אוטומטית.
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                        <button class="align-execute-btn" id="startAnchorBtn" onclick="startAnchorPicking()" style="flex:1;font-size:0.82em;padding:6px;">
+                            🖱️ בחר נקודות
+                        </button>
+                        <button class="align-execute-btn cancel-btn" onclick="clearAnchorPoints()" style="flex:1;font-size:0.82em;padding:6px;">
+                            🗑️ נקה
+                        </button>
+                    </div>
+                    <div id="anchorStatus" style="font-size:0.8em;color:#8af;margin-bottom:6px;">
+                        אין נקודות קבועות
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;font-size:0.82em;color:#ccc;margin-bottom:4px;">
+                        <label>סף שגיאה:</label>
+                        <input type="number" id="anchorThreshold" value="0.5" min="0.01" step="0.05"
+                            style="width:70px;background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;font-size:0.9em;">
+                        <span>יח' סצנה</span>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82em;color:#ccc;cursor:pointer;">
+                        <input type="checkbox" id="anchorAutoAlign" checked style="cursor:pointer;">
+                        יישור אוטומטי למודל חדש
+                    </label>
+                </div>
+
                 <div class="upload-section hidden" id="alignSection">
                     <div class="align-section">
                         <h4 data-i18n="alignTitle">🎯 יישור מודלים גמיש</h4>
@@ -322,6 +351,11 @@
             const container = document.getElementById('canvas-container');
             
             container.addEventListener('mousedown', (e) => {
+                // anchor picking mode
+                if (anchorState.picking) {
+                    pickAnchorPoint(e.clientX, e.clientY);
+                    return;
+                }
                 // ruler mode
                 if (rulerState.active) {
                     pickRulerPoint(e.clientX, e.clientY);
@@ -888,6 +922,19 @@
                 if (models.length === 1) {
                     adjustCameraToModel();
                 }
+
+                // יישור אוטומטי לנקודות קבועות (רק אם יש יותר ממודל אחד)
+                if (models.length > 1 && anchorState.points.length >= 2) {
+                    const alignResult = await autoAlignNewModel(modelData);
+                    if (alignResult.success) {
+                        calculateGlobalBoundingBox();
+                        applyCuts();
+                        saveSession();
+                        showToast(`✓ יישור אוטומטי הצליח — שגיאה ממוצעת: ${censor(alignResult.avgError.toFixed(4))}`);
+                    } else if (alignResult.reason === 'errorTooLarge') {
+                        showToast(`⚠️ יישור אוטומטי בוטל — שגיאה גדולה מדי: ${censor(alignResult.avgError.toFixed(4))} (סף: ${censor(String(alignResult.threshold))})`, 'error');
+                    }
+                }
                 
                 return modelData;
             } catch (error) {
@@ -1115,6 +1162,13 @@
         }
 
         // ===== סרגל קנה מידה =====
+        // ===== נקודות יישור קבועות =====
+        let anchorState = {
+            picking: false,   // האם בוחרים נקודות כרגע
+            points: [],       // THREE.Vector3[] — נקודות בעולם
+            markers: []       // THREE.Mesh[] — כדורים ב-rulerScene
+        };
+
         let rulerState = {
             active: false,
             finished: false, // true after measurement complete, waiting for user to dismiss
@@ -1949,6 +2003,374 @@
             updateModelList();
         }
 
+
+        // ===== נקודות יישור קבועות (Anchor Points) =====
+
+        function updateAnchorStatus() {
+            const el = document.getElementById('anchorStatus');
+            if (!el) return;
+            const n = anchorState.points.length;
+            if (n === 0) {
+                el.textContent = 'אין נקודות קבועות';
+                el.style.color = '#888';
+            } else if (anchorState.picking) {
+                el.textContent = censor(`בוחר נקודות: ${n} עד כה — לחץ ESC לסיום`);
+                el.style.color = '#fa0';
+            } else {
+                el.textContent = censor(`${n} נקודות קבועות מוגדרות ✓`);
+                el.style.color = '#8f8';
+            }
+            document.getElementById('startAnchorBtn').textContent = anchorState.picking ? '✓ סיים בחירה' : '🖱️ בחר נקודות';
+        }
+
+        function startAnchorPicking() {
+            if (anchorState.picking) {
+                // סיים בחירה
+                anchorState.picking = false;
+                document.getElementById('canvas-container').style.cursor = '';
+                updateAnchorStatus();
+                saveAnchorToStorage();
+                return;
+            }
+            if (!scene) { alert('העלה מודל תחילה'); return; }
+            anchorState.picking = true;
+            document.getElementById('canvas-container').style.cursor = 'crosshair';
+            updateAnchorStatus();
+        }
+
+        function clearAnchorPoints() {
+            anchorState.picking = false;
+            anchorState.points = [];
+            anchorState.markers.forEach(m => rulerScene && rulerScene.remove(m));
+            anchorState.markers = [];
+            document.getElementById('canvas-container').style.cursor = '';
+            updateAnchorStatus();
+            saveAnchorToStorage();
+        }
+
+        function addAnchorPoint(worldPoint) {
+            anchorState.points.push(worldPoint.clone());
+            // ציור כדור ירוק על ה-rulerScene
+            const geo = new THREE.SphereGeometry(0.07, 12, 12);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x00FF88, depthTest: false, depthWrite: false });
+            const sphere = new THREE.Mesh(geo, mat);
+            sphere.position.copy(worldPoint);
+            rulerScene.add(sphere);
+            anchorState.markers.push(sphere);
+            updateAnchorStatus();
+        }
+
+        function pickAnchorPoint(clientX, clientY) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            const mx = ((clientX - rect.left) / rect.width) * 2 - 1;
+            const my = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
+            const allMeshes = [];
+            models.forEach(model => {
+                if (!model.visible) return;
+                (model.meshes || []).forEach(mesh => {
+                    if (mesh.visible) allMeshes.push(mesh);
+                });
+            });
+
+            const intersects = raycaster.intersectObjects(allMeshes, false);
+            if (intersects.length === 0) return;
+            addAnchorPoint(intersects[0].point);
+        }
+
+        // ===== יישור אוטומטי למודל חדש =====
+
+        /**
+         * מוצא את הנקודה הקרובה ביותר על מודל נתון לנקודת עולם מסוימת
+         * על ידי חיפוש בכל vertex-ים של הגיאומטריה
+         */
+        function findClosestPointOnModel(model, worldPoint) {
+            let best = null;
+            let bestDist = Infinity;
+
+            const localQuery = worldPoint.clone().applyMatrix4(model.group.matrixWorld.clone().invert());
+
+            (model.meshes || []).forEach(mesh => {
+                const geom = mesh.geometry;
+                if (!geom || !geom.attributes.position) return;
+                const pos = geom.attributes.position;
+                const v = new THREE.Vector3();
+                for (let i = 0; i < pos.count; i++) {
+                    v.fromBufferAttribute(pos, i);
+                    const d = v.distanceTo(localQuery);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        best = v.clone();
+                    }
+                }
+            });
+
+            if (!best) return null;
+            // המר חזרה לעולם
+            return best.applyMatrix4(model.group.matrixWorld);
+        }
+
+        /**
+         * יישור אוטומטי של מודל חדש לנקודות הקבועות.
+         * מחפש את הנקודות הקרובות ביותר על המודל החדש,
+         * מריץ את אלגוריתם Kabsch, ובודק שגיאה.
+         * מחזיר { success, avgError } 
+         */
+        async function autoAlignNewModel(newModel) {
+            if (!document.getElementById('anchorAutoAlign').checked) return { success: false, reason: 'disabled' };
+            const anchors = anchorState.points;
+            if (anchors.length < 2) return { success: false, reason: 'noAnchors' };
+
+            // הצג הודעה
+            const loadingMsg = document.getElementById('loadingMessage');
+            loadingMsg.classList.remove('hidden');
+            loadingMsg.textContent = 'מחפש נקודות יישור על המודל החדש...';
+
+            await new Promise(r => setTimeout(r, 30)); // נתן ל-DOM להתעדכן
+
+            // מצא נקודות קרובות על המודל החדש לכל נקודה קבועה
+            const newModelPoints = anchors.map(anchor => findClosestPointOnModel(newModel, anchor));
+
+            // בדוק שכל הנקודות נמצאו
+            if (newModelPoints.some(p => p === null)) {
+                loadingMsg.classList.add('hidden');
+                return { success: false, reason: 'notFound' };
+            }
+
+            const n = anchors.length;
+
+            // מרחב מקומי של המודל החדש
+            const worldToLocalNew = newModel.group.matrixWorld.clone().invert();
+            const sourceLocal = newModelPoints.map(p => p.clone().applyMatrix4(worldToLocalNew));
+
+            // מרכזים
+            const targetCenter = new THREE.Vector3();
+            const sourceCenter = new THREE.Vector3();
+            anchors.forEach(p => targetCenter.add(p));
+            sourceLocal.forEach(p => sourceCenter.add(p));
+            targetCenter.divideScalar(n);
+            sourceCenter.divideScalar(n);
+
+            const targetCentered = anchors.map(p => p.clone().sub(targetCenter));
+            const sourceCentered = sourceLocal.map(p => p.clone().sub(sourceCenter));
+
+            // חישוב rotation (Kabsch)
+            const rotation = kabschRotation(sourceCentered, targetCentered);
+
+            // חישוב סקייל
+            let ss = 0, ts = 0;
+            for (let i = 0; i < n; i++) {
+                ss += sourceCentered[i].lengthSq();
+                ts += targetCentered[i].lengthSq();
+            }
+            const scale = ss > 0 ? Math.sqrt(ts / ss) : 1;
+
+            // יישום
+            newModel.group.scale.set(scale, scale, scale);
+            const euler = new THREE.Euler().setFromQuaternion(rotation);
+            newModel.group.rotation.copy(euler);
+            newModel.group.updateMatrixWorld(true);
+
+            // הזזה
+            const transformedSourceCenter = sourceCenter.clone()
+                .multiplyScalar(scale)
+                .applyQuaternion(rotation);
+            const translation = targetCenter.clone().sub(transformedSourceCenter);
+            newModel.group.position.copy(translation);
+            newModel.group.updateMatrixWorld(true);
+
+            // חישוב שגיאה ממוצעת
+            let totalError = 0;
+            for (let i = 0; i < n; i++) {
+                const transformed = sourceLocal[i].clone()
+                    .multiplyScalar(scale)
+                    .applyQuaternion(rotation)
+                    .add(translation);
+                totalError += transformed.distanceTo(anchors[i]);
+            }
+            const avgError = totalError / n;
+
+            const threshold = parseFloat(document.getElementById('anchorThreshold').value) || 0.5;
+
+            loadingMsg.classList.add('hidden');
+
+            if (avgError > threshold) {
+                // ביטול — שגיאה גדולה מדי, שחזר מצב מקורי
+                newModel.group.position.set(0, 0, 0);
+                newModel.group.rotation.set(0, 0, 0);
+                const origScale = 4 / Math.max(...['x','y','z'].map(a => {
+                    const b = new THREE.Box3().setFromObject(newModel.group);
+                    const s = new THREE.Vector3(); b.getSize(s);
+                    return Math.max(s.x, s.y, s.z);
+                }));
+                // don't mess with scale, just report
+                return { success: false, reason: 'errorTooLarge', avgError, threshold };
+            }
+
+            return { success: true, avgError };
+        }
+
+        /**
+         * Kabsch algorithm — מחזיר quaternion אופטימלי
+         */
+        function kabschRotation(sourcePoints, targetPoints) {
+            const n = sourcePoints.length;
+            // H = S^T * T
+            const H = [[0,0,0],[0,0,0],[0,0,0]];
+            for (let i = 0; i < n; i++) {
+                const s = [sourcePoints[i].x, sourcePoints[i].y, sourcePoints[i].z];
+                const t = [targetPoints[i].x, targetPoints[i].y, targetPoints[i].z];
+                for (let r = 0; r < 3; r++)
+                    for (let c = 0; c < 3; c++)
+                        H[r][c] += s[r] * t[c];
+            }
+
+            // SVD (Jacobi) on 3x3
+            const { U, V } = svd3x3(H);
+
+            // R = V * U^T
+            const R = mat3mul(V, mat3transpose(U));
+
+            // בדוק determinant — אם שלילי, תקן reflection
+            const det = mat3det(R);
+            if (det < 0) {
+                V[0][2] *= -1; V[1][2] *= -1; V[2][2] *= -1;
+                const Rfix = mat3mul(V, mat3transpose(U));
+                return mat3ToQuaternion(Rfix);
+            }
+            return mat3ToQuaternion(R);
+        }
+
+        // --- עזרים מטריצאליים ---
+        function mat3transpose(m) {
+            return [[m[0][0],m[1][0],m[2][0]],
+                    [m[0][1],m[1][1],m[2][1]],
+                    [m[0][2],m[1][2],m[2][2]]];
+        }
+        function mat3mul(A, B) {
+            const C = [[0,0,0],[0,0,0],[0,0,0]];
+            for (let i=0;i<3;i++) for (let j=0;j<3;j++) for (let k=0;k<3;k++) C[i][j]+=A[i][k]*B[k][j];
+            return C;
+        }
+        function mat3det(m) {
+            return m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])
+                  -m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])
+                  +m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+        }
+        function mat3ToQuaternion(R) {
+            // Shepperd method
+            const m = R;
+            const trace = m[0][0]+m[1][1]+m[2][2];
+            let q;
+            if (trace > 0) {
+                const s = 0.5/Math.sqrt(trace+1);
+                q = new THREE.Quaternion(
+                    (m[2][1]-m[1][2])*s,
+                    (m[0][2]-m[2][0])*s,
+                    (m[1][0]-m[0][1])*s,
+                    0.25/s
+                );
+            } else if (m[0][0]>m[1][1]&&m[0][0]>m[2][2]) {
+                const s = 2*Math.sqrt(1+m[0][0]-m[1][1]-m[2][2]);
+                q = new THREE.Quaternion(0.25*s,(m[0][1]+m[1][0])/s,(m[0][2]+m[2][0])/s,(m[2][1]-m[1][2])/s);
+            } else if (m[1][1]>m[2][2]) {
+                const s = 2*Math.sqrt(1+m[1][1]-m[0][0]-m[2][2]);
+                q = new THREE.Quaternion((m[0][1]+m[1][0])/s,0.25*s,(m[1][2]+m[2][1])/s,(m[0][2]-m[2][0])/s);
+            } else {
+                const s = 2*Math.sqrt(1+m[2][2]-m[0][0]-m[1][1]);
+                q = new THREE.Quaternion((m[0][2]+m[2][0])/s,(m[1][2]+m[2][1])/s,0.25*s,(m[1][0]-m[0][1])/s);
+            }
+            q.normalize();
+            return q;
+        }
+
+        /**
+         * SVD 3x3 ב-Jacobi iterations — מחזיר { U, V } כך ש-A = U * S * V^T
+         */
+        function svd3x3(A) {
+            // One-sided Jacobi SVD
+            let U = [[1,0,0],[0,1,0],[0,0,1]];
+            let V = [[1,0,0],[0,1,0],[0,0,1]];
+            let B = [A[0].slice(), A[1].slice(), A[2].slice()]; // copy
+
+            for (let iter = 0; iter < 20; iter++) {
+                for (let p = 0; p < 3; p++) {
+                    for (let q2 = p+1; q2 < 3; q2++) {
+                        const alpha = B[p][p]*B[p][p] + B[q2][p]*B[q2][p];
+                        if (alpha < 1e-12) continue;
+                        const beta  = B[p][q2]*B[q2][q2] + B[q2][q2]*B[q2][q2];
+                        // Left Jacobi
+                        {
+                            const t2 = (B[q2][p]*B[p][p]+B[q2][q2]*B[p][q2]);
+                            const t1 = (B[p][p]*B[p][p]+B[p][q2]*B[p][q2] - B[q2][p]*B[q2][p] - B[q2][q2]*B[q2][q2])/2;
+                            if (Math.abs(t2) < 1e-12) continue;
+                            const tau = t1/t2;
+                            const t = tau<0 ? -1/(Math.abs(tau)+Math.sqrt(1+tau*tau)) : 1/(Math.abs(tau)+Math.sqrt(1+tau*tau));
+                            const c = 1/Math.sqrt(1+t*t), s2 = t*c;
+                            // apply G_L from left: B = J^T * B
+                            for (let k=0;k<3;k++) {
+                                const tmp = B[p][k]; B[p][k] = c*tmp+s2*B[q2][k]; B[q2][k] = -s2*tmp+c*B[q2][k];
+                            }
+                            for (let k=0;k<3;k++) {
+                                const tmp = U[k][p]; U[k][p] = c*tmp+s2*U[k][q2]; U[k][q2] = -s2*tmp+c*U[k][q2];
+                            }
+                        }
+                        // Right Jacobi
+                        {
+                            const t2 = (B[p][q2]*B[p][p]+B[q2][q2]*B[q2][p]);
+                            if (Math.abs(t2)<1e-12) continue;
+                            const t1 = (B[p][p]*B[p][p]+B[q2][p]*B[q2][p]-B[p][q2]*B[p][q2]-B[q2][q2]*B[q2][q2])/2;
+                            const tau = t1/t2;
+                            const t = tau<0 ? -1/(Math.abs(tau)+Math.sqrt(1+tau*tau)) : 1/(Math.abs(tau)+Math.sqrt(1+tau*tau));
+                            const c = 1/Math.sqrt(1+t*t), s2 = t*c;
+                            for (let k=0;k<3;k++) {
+                                const tmp = B[k][p]; B[k][p] = c*tmp+s2*B[k][q2]; B[k][q2] = -s2*tmp+c*B[k][q2];
+                            }
+                            for (let k=0;k<3;k++) {
+                                const tmp = V[k][p]; V[k][p] = c*tmp+s2*V[k][q2]; V[k][q2] = -s2*tmp+c*V[k][q2];
+                            }
+                        }
+                    }
+                }
+            }
+            return { U, V };
+        }
+
+        function saveAnchorToStorage() {
+            try {
+                const data = { points: anchorState.points.map(p => ({x:p.x,y:p.y,z:p.z})) };
+                localStorage.setItem('digitrace_anchors', JSON.stringify(data));
+            } catch(e) {}
+        }
+
+        function restoreAnchorFromStorage() {
+            try {
+                const raw = localStorage.getItem('digitrace_anchors');
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (!data.points || !data.points.length) return;
+                data.points.forEach(p => addAnchorPoint(new THREE.Vector3(p.x, p.y, p.z)));
+            } catch(e) {}
+        }
+
+
+
+        function showToast(msg, type = 'success') {
+            let toast = document.getElementById('_toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = '_toast';
+                toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:8px;font-size:0.92em;color:#fff;z-index:99999;pointer-events:none;transition:opacity 0.4s;white-space:nowrap;max-width:90vw;text-align:center;';
+                document.body.appendChild(toast);
+            }
+            toast.style.background = type === 'error' ? '#a33' : '#2a7a4a';
+            toast.textContent = msg;
+            toast.style.opacity = '1';
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 4000);
+        }
         // ===== פונקציות הורדה =====
 
         function updateDownloadSection() {
@@ -3012,6 +3434,16 @@
             } catch(e) {}
         }
 
+
+        // ESC לסיום בחירת anchor
+        window.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && anchorState.picking) {
+                anchorState.picking = false;
+                document.getElementById('canvas-container').style.cursor = '';
+                updateAnchorStatus();
+                saveAnchorToStorage();
+            }
+        });
         // שמור כל שנייה + על כל פעולה
         setInterval(saveSession, 1000);
         window.addEventListener('beforeunload', saveSession);
@@ -3019,6 +3451,7 @@
         // שחזר בטעינה
         window.addEventListener('load', async () => {
             await restoreFullSession();
+            restoreAnchorFromStorage();
         });
 
     </script>
