@@ -1607,8 +1607,9 @@
 
                 meshes.forEach(mesh => {
                     if (!mesh.visible) return;
-
-                    const geometry = mesh.geometry;
+                    // דלג על markers של יישור
+                    if (mesh.userData && mesh.userData.label) return;
+                    if (mesh.isSprite) return;
                     if (!geometry || !geometry.attributes || !geometry.attributes.position) {
                         console.log('Skipping mesh with no geometry');
                         return;
@@ -2254,6 +2255,9 @@
             const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
             meshes.forEach(mesh => {
                 if (!mesh.visible) return;
+                // דלג על markers של יישור (כדורים וספרייטים)
+                if (mesh.userData && mesh.userData.label) return;
+                if (mesh.isSprite) return;
                 const geometry = mesh.geometry;
                 if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
                 const positions = geometry.attributes.position.array;
