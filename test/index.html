@@ -290,13 +290,42 @@
         let mouse = new THREE.Vector2();
 
         // מיפוי צבעים לשמות בעברית
-        const colorNames = {
-            0xFF6B6B: { name: 'אדום', hex: '#FF6B6B' },
-            0x4ECDC4: { name: 'טורקיז', hex: '#4ECDC4' },
-            0x45B7D1: { name: 'כחול', hex: '#45B7D1' },
-            0xFFA07A: { name: 'כתום', hex: '#FFA07A' },
-            0x98D8C8: { name: 'ירוק', hex: '#98D8C8' }
-        };
+        // פאלטת 12 צבעים מובחנים — לעולם לא יחזרו על עצמם בין 12 מודלים
+        const MODEL_COLORS = [
+            { hex: 0xFF6B6B, css: '#FF6B6B', name: 'אדום' },
+            { hex: 0x4ECDC4, css: '#4ECDC4', name: 'טורקיז' },
+            { hex: 0x45B7D1, css: '#45B7D1', name: 'כחול' },
+            { hex: 0xFFA07A, css: '#FFA07A', name: 'כתום' },
+            { hex: 0x98D8C8, css: '#98D8C8', name: 'ירוק' },
+            { hex: 0xF7DC6F, css: '#F7DC6F', name: 'צהוב' },
+            { hex: 0xBB8FCE, css: '#BB8FCE', name: 'סגול' },
+            { hex: 0xF0B27A, css: '#F0B27A', name: 'אפרסק' },
+            { hex: 0x82E0AA, css: '#82E0AA', name: 'ירוק בהיר' },
+            { hex: 0x85C1E9, css: '#85C1E9', name: 'תכלת' },
+            { hex: 0xF1948A, css: '#F1948A', name: 'ורוד' },
+            { hex: 0xF9E79F, css: '#F9E79F', name: 'שמנת' },
+        ];
+
+        // מצא מידע צבע לפי hex number
+        function getColorInfo(hexNum) {
+            const found = MODEL_COLORS.find(c => c.hex === hexNum);
+            if (found) return { name: found.name, hex: found.css };
+            const css = '#' + ('000000' + hexNum.toString(16)).slice(-6);
+            return { name: 'מותאם', hex: css };
+        }
+
+        // שינוי צבע מודל
+        function changeModelColor(id, hexNum) {
+            const model = models.find(m => m.id === id);
+            if (!model) return;
+            model.color = hexNum;
+            const cssColor = getColorInfo(hexNum).hex;
+            model.meshes.forEach(mesh => {
+                if (mesh.material) mesh.material.color.set(cssColor);
+            });
+            updateModelList();
+            saveSession();
+        }
 
         function initThreeJS() {
             const container = document.getElementById('canvas-container');
@@ -961,9 +990,17 @@
             listContainer.innerHTML = '';
 
             models.forEach(model => {
-                const extension = model.name.split('.').pop().toUpperCase();
-                const colorInfo = colorNames[model.color] || { name: 'לא ידוע', hex: '#999999' };
-                
+                const colorInfo = getColorInfo(model.color);
+
+                // בנה swatches לבחירת צבע
+                const swatches = MODEL_COLORS.map(c =>
+                    `<span
+                        onclick="changeModelColor(${model.id}, ${c.hex})"
+                        title="${c.name}"
+                        style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c.css};cursor:pointer;border:${model.color === c.hex ? '2px solid #fff' : '1px solid #555'};flex-shrink:0;"
+                    ></span>`
+                ).join('');
+
                 const item = document.createElement('div');
                 item.className = 'model-item';
                 item.innerHTML = `
@@ -973,6 +1010,7 @@
                             <div class="flex-grow">
                                 ${model.name}
                                 <div class="color-name"><span data-i18n="colorLabel">צבע</span>: ${colorInfo.name} &nbsp;|&nbsp; 📐 ${model.unit || '?'}</div>
+                                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">${swatches}</div>
                             </div>
                         </div>
                         <div class="model-date">${model.date}</div>
@@ -1377,9 +1415,8 @@
             if (!scene) initThreeJS();
             e.target.value = '';
 
-            const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
             pendingFiles = files;
-            pendingColors = files.map((_, i) => colors[(models.length + i) % colors.length]);
+            pendingColors = files.map((_, i) => MODEL_COLORS[(models.length + i) % MODEL_COLORS.length].hex);
 
             // GLB/GLTF תמיד מטר — רק STL/OBJ שאינם aligned צריכים שאלה
             const needsUnits = files.filter(f => {
@@ -3446,7 +3483,6 @@
 
                 if (!scene) initThreeJS();
 
-                const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
                 const loadingMsg = document.getElementById('loadingMessage');
                 loadingMsg.classList.remove('hidden');
 
@@ -3458,7 +3494,7 @@
 
                     try {
                         const mainGroup = new THREE.Group();
-                        const color = meta.color || colors[models.length % colors.length];
+                        const color = meta.color || MODEL_COLORS[models.length % MODEL_COLORS.length].hex;
 
                         idbRec.geoBuffers.forEach(buf => {
                             const geometry = arrayBufferToGeometry(buf);
