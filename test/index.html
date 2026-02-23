@@ -1,2960 +1,1168 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DigiTrace - מערכת ניתוח ארכיאולוגית</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="icon.png" type="image/png">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 data-i18n="siteTitle">DigiTrace - 🏺 מערכת ניתוח חפירות ארכיאולוגיות 3D</h1>
-            <p data-i18n="siteSubtitle">העלאת מודלים תלת-ממדיים וניתוח שכבות חפירה • יישור גמיש עם מספר נקודות</p>
-
-            <div class="lang-switcher">
-                <label for="langSelect" class="text-muted">🌐</label>
-                <select id="langSelect" aria-label="Language selector"></select>
-            </div>
-        </div>
-
-        <div class="content">
-            <div class="sidebar">
-                <div class="upload-section">
-                    <h3 data-i18n="uploadTitle">📁 העלאת מודלים</h3>
-                    <div class="upload-box" id="uploadBox" onclick="document.getElementById('fileInput').click()">
-                        <div class="upload-icon">📤</div>
-                        <div data-i18n="uploadHint">לחץ להעלאת קובץ 3D</div>
-                        <small class="text-muted" data-i18n="fileFormats">
-                            OBJ, STL, GLB, GLTF
-                        </small>
-                    </div>
-                    <div id="loadingMessage" class="loading-message hidden"></div>
-                    <input type="file" id="fileInput" class="file-input" accept=".obj,.stl,.glb,.gltf" multiple>
-                </div>
-
-                <div class="upload-section">
-                    <h3 data-i18n="uploadedModels">📋 מודלים שהועלו</h3>
-                    <div id="modelList" class="model-list"></div>
-                </div>
-
-                <div class="upload-section hidden" id="downloadSection">
-                    <h3 data-i18n="downloadModel">📥 הורדת מודלים</h3>
-                    <div class="download-box">
-                        <select id="exportFormat" class="format-select">
-                            <option value="stl">STL</option>
-                            <option value="obj">OBJ</option>
-                            <option value="glb">GLB</option>
-                            <option value="gltf">GLTF</option>
-                        </select>
-                        <button class="download-btn" onclick="downloadCombinedModel()">
-                            📥 הורד מודל משולב
-                        </button>
-                        <button class="download-btn" style="background:#5a8a5a;margin-top:6px" onclick="downloadAllSeparate()">
-                            📥 הורד כל מודל בנפרד (מיושר)
-                        </button>
-                    </div>
-                </div>
-
-                <div class="upload-section hidden" id="alignSection">
-                    <div class="align-section">
-                        <h4 data-i18n="alignTitle">🎯 יישור מודלים גמיש</h4>
-                        <div class="align-controls">
-                            <div class="align-info" id="alignStatus" data-i18n="alignInfo">
-                                לחץ על 📍 ליד מודל ובחר נקודות עליו
-                            </div>
-                            <div class="point-counter" id="pointCounter" data-i18n="pointCounter">
-                                מודל 1: 0 נקודות | מודל 2: 0 נקודות
-                            </div>
-                            <button class="align-action-btn hidden" id="finishModelBtn" data-i18n="finishModelBtn" onclick="finishCurrentModel()">
-                                סיים מודל נוכחי →
-                            </button>
-                            <button class="align-action-btn hidden" id="undoPointBtn" data-i18n="undoPointBtn" onclick="undoLastPoint()">
-                                ↶ מחק נקודה אחרונה
-                            </button>
-                            <button class="align-execute-btn" id="executeAlignBtn" data-i18n="executeAlignBtn" onclick="executeAlignment()" disabled>
-                                יישר מודלים
-                            </button>
-                            <button class="align-execute-btn cancel-btn" data-i18n="cancelBtn" onclick="cancelAlignment()">
-                                ביטול
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="main-content">
-                <div class="controls">
-                    <div class="controls-btns">
-                        <button class="fullscreen-btn" id="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;">📏 סרגל</button>
-                        <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
-                    </div>
-                    <div class="control-group">
-                        <label>
-                            <span class="value-display" id="cutYValue" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
-                            <span data-i18n="cutYLabel">חיתוך מלמעלה למטה</span>
-                        </label>
-                        <input type="range" id="cutY" class="slider" min="0" max="100" value="0">
-                    </div>
-
-                    <div class="control-group">
-                        <label>
-                            <span class="value-display" id="cutXValue" data-i18n="cutXValue">חיתוך רוחב: 0%</span>
-                            <span data-i18n="cutXLabel">חיתוך משמאל לימין</span>
-                        </label>
-                        <input type="range" id="cutX" class="slider" min="0" max="100" value="0">
-                    </div>
-
-                    <div class="control-group">
-                        <label>
-                            <span class="value-display" id="cutZValue" data-i18n="cutZValue">חיתוך עומק: 0%</span>
-                            <span data-i18n="cutZLabel">חיתוך מאחורה לקדימה</span>
-                        </label>
-                        <input type="range" id="cutZ" class="slider" min="0" max="100" value="0">
-                    </div>
-                </div>
-
-                <button class="close-fullscreen" data-i18n="closeFullscreen" onclick="toggleFullscreen()">✕ סגור מסך מלא</button>
-                
-                <div class="fullscreen-controls" id="fullscreenControls">
-                    <button class="fullscreen-btn" id="rulerBtnFS" onclick="toggleRuler()" style="background:#5a5a8a;margin-bottom:8px;width:100%;">📏 סרגל</button>
-                    <div class="control-group">
-                        <label>
-                            <span class="value-display" id="cutYValueFS" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
-                            <span data-i18n="cutYLabel">חיתוך מלמעלה למטה</span>
-                        </label>
-                        <input type="range" id="cutYFS" class="slider" min="0" max="100" value="0">
-                    </div>
-
-                    <div class="control-group">
-                        <label>
-                            <span class="value-display" id="cutXValueFS" data-i18n="cutXValue">חיתוך רוחב: 0%</span>
-                            <span data-i18n="cutXLabel">חיתוך משמאל לימין</span>
-                        </label>
-                        <input type="range" id="cutXFS" class="slider" min="0" max="100" value="0">
-                    </div>
-
-                    <div class="control-group">
-                        <label>
-                            <span class="value-display" id="cutZValueFS" data-i18n="cutZValue">חיתוך עומק: 0%</span>
-                            <span data-i18n="cutZLabel">חיתוך מאחורה לקדימה</span>
-                        </label>
-                        <input type="range" id="cutZFS" class="slider" min="0" max="100" value="0">
-                    </div>
-                </div>
-
-                <div class="viewer viewer-flex">
-                    <div id="canvas-container">
-                        <div class="instruction">
-                            <div class="instruction-icon">🏛️</div>
-                            <div>העלה מודלים תלת-ממדיים כדי להתחיל</div>
-                            <div class="instruction-hint">
-                                תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה<br>
-                                <strong>תמיכה מלאה ב: OBJ, STL, GLB, GLTF</strong><br>
-                                <strong>יישור גמיש: בחר כמה נקודות שתרצה!</strong>
-                            </div>
-                        </div>
-                        <!-- ruler overlay -->
-                        <div id="rulerOverlay" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.9em;pointer-events:none;z-index:10;white-space:nowrap;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-<div id="helpModal" class="modal">
-    <div class="modal-content">
-        <span class="modal-close" onclick="toggleHelp()">&times;</span>
-        <div class="modal-body" id="helpContent">
-            <div class="loading-help">טוען את מדריך העזרה...</div>
-        </div>
-    </div>
-</div>
-
-<!-- מודל יחידות מידה -->
-<div id="unitsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:28px 32px;max-width:480px;width:90%;color:#eee;font-family:inherit;direction:rtl;">
-        <h3 style="margin:0 0 8px;font-size:1.1em;">📐 יחידות מידה</h3>
-        <p id="unitsModalDesc" style="margin:0 0 18px;font-size:0.88em;color:#aaa;line-height:1.5;"></p>
-
-        <div style="margin-bottom:16px;">
-            <label style="font-size:0.9em;display:block;margin-bottom:6px;">יחידת מידה לכל המודלים החדשים:</label>
-            <select id="unitsGlobalSelect" style="width:100%;padding:8px;border-radius:6px;background:#2a2a3e;color:#eee;border:1px solid #555;font-size:0.95em;">
-                <option value="mm">מילימטר (mm)</option>
-                <option value="cm">סנטימטר (cm)</option>
-                <option value="m" selected>מטר (m)</option>
-                <option value="inch">אינץ' (inch)</option>
-                <option value="ft">רגל (ft)</option>
-            </select>
-        </div>
-
-        <div id="unitsPerModelSection" style="display:none;margin-bottom:16px;">
-            <div style="background:#ff9800;color:#000;padding:8px 12px;border-radius:6px;font-size:0.85em;margin-bottom:12px;">
-                ⚠️ נזהה הבדל גדול בגודל בין המודלים — ייתכן שיש להם יחידות שונות. תוכל להגדיר לכל אחד בנפרד:
-            </div>
-            <div id="unitsPerModelList"></div>
-        </div>
-
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
-            <button onclick="confirmUnits()" style="padding:8px 22px;border-radius:6px;background:#4a9;border:none;color:#fff;cursor:pointer;font-size:0.95em;">אישור</button>
-        </div>
-    </div>
-</div>
-
-<script type="text/markdown" id="readmeTemplate"></script>
-
-<script>
-    fetch('README.md')
-        .then(response => {
-            if (!response.ok) throw new Error('קובץ לא נמצא');
-            return response.text();
-        })
-        .then(data => {
-            // 1. שומר בתוך ה-Template כפי שביקשת
-            const template = document.getElementById('readmeTemplate');
-            template.textContent = data;
-
-            // 2. מזריק את התוכן המעובד לתוך גוף המודל
-            const helpContent = document.getElementById('helpContent');
-            helpContent.innerHTML = marked.parse(data); 
-        })
-        .catch(err => {
-            document.getElementById('helpContent').innerHTML = "שגיאה בטעינת העזרה.";
-            console.error(err);
-        });
-</script>
-
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script>
-        let scene, camera, renderer;
-        let models = [];
-        let modelCounter = 0;
-        let globalBoundingBox = null;
-        
-        let isDragging = false;
-        let previousMousePosition = { x: 0, y: 0 };
-        let cameraRotation = { horizontal: 45, vertical: 30 };
-        let cameraDistance = 8;
-
-        // משתנים ליישור - גרסה גמישה
-        let alignState = {
-            active: false,
-            selectingModel: null,
-            model1: null,
-            model2: null,
-            points1: [],
-            points2: [],
-            markers: [], // stores { label, mesh, modelId }
-            minPoints: 2  // מינימום נקודות נדרש
-        };
-
-        let raycaster = new THREE.Raycaster();
-        let mouse = new THREE.Vector2();
-
-        // מיפוי צבעים לשמות בעברית
-        const colorNames = {
-            0xFF6B6B: { name: 'אדום', hex: '#FF6B6B' },
-            0x4ECDC4: { name: 'טורקיז', hex: '#4ECDC4' },
-            0x45B7D1: { name: 'כחול', hex: '#45B7D1' },
-            0xFFA07A: { name: 'כתום', hex: '#FFA07A' },
-            0x98D8C8: { name: 'ירוק', hex: '#98D8C8' }
-        };
-
-        function initThreeJS() {
-            const container = document.getElementById('canvas-container');
-            const instruction = container.querySelector('.instruction');
-            if (instruction) instruction.remove();
-
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB);
-
-            const aspect = container.clientWidth / container.clientHeight;
-            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-            updateCameraPosition();
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            container.appendChild(renderer.domElement);
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(5, 10, 5);
-            scene.add(directionalLight);
-
-            const floorGeometry = new THREE.PlaneGeometry(20, 20);
-            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xD2B48C, side: THREE.DoubleSide });
-            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-            floor.rotation.x = Math.PI / 2;
-            floor.position.y = -2;
-            scene.add(floor);
-
-            raycaster = new THREE.Raycaster();
-            
-            setupMouseControls();
-            animate();
-        }
-
-        function updateCameraPosition() {
-            const horizontalAngle = (cameraRotation.horizontal * Math.PI) / 180;
-            const verticalAngle = (cameraRotation.vertical * Math.PI) / 180;
-            
-            camera.position.x = Math.sin(horizontalAngle) * Math.cos(verticalAngle) * cameraDistance;
-            camera.position.y = Math.sin(verticalAngle) * cameraDistance;
-            camera.position.z = Math.cos(horizontalAngle) * Math.cos(verticalAngle) * cameraDistance;
-            camera.lookAt(0, 0, 0);
-        }
-
-        function setupMouseControls() {
-            const container = document.getElementById('canvas-container');
-            
-            container.addEventListener('mousedown', (e) => {
-                // ruler mode
-                if (rulerState.active) {
-                    pickRulerPoint(e.clientX, e.clientY);
-                    return;
-                }
-
-                if (alignState.active && alignState.selectingModel !== null) {
-                    const rect = container.getBoundingClientRect();
-                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                    
-                    raycaster.setFromCamera(mouse, camera);
-                    const currentModel = models.find(m => m.id === alignState.selectingModel);
-                    
-                    if (currentModel) {
-                        const meshes = currentModel.meshes || (currentModel.mesh ? [currentModel.mesh] : []);
-                        const intersects = raycaster.intersectObjects(meshes, true);
-                        
-                        if (intersects.length > 0) {
-                            selectAlignmentPoint(e.clientX, e.clientY);
-                            return;
-                        }
-                    }
-                }
-                
-                isDragging = true;
-                previousMousePosition = { x: e.clientX, y: e.clientY };
-            });
-
-            container.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                
-                const deltaX = e.clientX - previousMousePosition.x;
-                const deltaY = e.clientY - previousMousePosition.y;
-                
-                cameraRotation.horizontal -= deltaX * 0.5;
-                cameraRotation.vertical += deltaY * 0.5;
-                
-                cameraRotation.vertical = Math.max(-89, Math.min(89, cameraRotation.vertical));
-                
-                updateCameraPosition();
-                
-                previousMousePosition = { x: e.clientX, y: e.clientY };
-
-                clearTimeout(window._camSaveTimer);
-                window._camSaveTimer = setTimeout(saveSession, 1000);
-            });
-
-            container.addEventListener('mouseup', () => {
-                isDragging = false;
-            });
-
-            container.addEventListener('mouseleave', () => {
-                isDragging = false;
-            });
-
-            container.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                
-                const zoomSpeed = 0.001;
-                cameraDistance += e.deltaY * zoomSpeed * cameraDistance;
-                
-                cameraDistance = Math.max(1, Math.min(50, cameraDistance));
-                
-                updateCameraPosition();
-            }, { passive: false });
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (renderer && scene && camera) {
-                renderer.render(scene, camera);
-            }
-        }
-
-        function loadOBJFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const text = e.target.result;
-                    try {
-                        const isAligned = text.startsWith('# DIGIALIGNED');
-                        const geometry = parseOBJ(text);
-                        if (geometry && geometry.attributes.position.count > 0) {
-                            geometry.userData = { isAligned };
-                            resolve([geometry]);
-                        } else {
-                            reject(new Error('הקובץ ריק או לא תקין'));
-                        }
-                    } catch (err) {
-                        reject(new Error('שגיאה בניתוח הקובץ: ' + err.message));
-                    }
-                };
-                reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
-                reader.readAsText(file);
-            });
-        }
-
-        function parseOBJ(text) {
-            const vertices = [];
-            const faces = [];
-            const lines = text.split('\n');
-            let vertexCount = 0;
-
-            for (let line of lines) {
-                line = line.trim();
-                if (line.startsWith('v ')) {
-                    const parts = line.split(/\s+/);
-                    if (parts.length >= 4) {
-                        const x = parseFloat(parts[1]);
-                        const y = parseFloat(parts[2]);
-                        const z = parseFloat(parts[3]);
-                        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-                            vertices.push(x, y, z);
-                            vertexCount++;
-                        }
-                    }
-                }
-            }
-
-            for (let line of lines) {
-                line = line.trim();
-                if (line.startsWith('f ')) {
-                    const parts = line.split(/\s+/).slice(1);
-                    if (parts.length < 3) continue;
-                    
-                    const faceIndices = [];
-                    let validFace = true;
-                    
-                    for (let part of parts) {
-                        const idx = parseInt(part.split('/')[0]);
-                        let realIdx = idx > 0 ? idx - 1 : vertexCount + idx;
-                        
-                        if (realIdx < 0 || realIdx >= vertexCount) {
-                            validFace = false;
-                            break;
-                        }
-                        faceIndices.push(realIdx);
-                    }
-                    
-                    if (validFace && faceIndices.length >= 3) {
-                        for (let i = 1; i < faceIndices.length - 1; i++) {
-                            faces.push(faceIndices[0], faceIndices[i], faceIndices[i + 1]);
-                        }
-                    }
-                }
-            }
-
-            if (vertices.length === 0) {
-                throw new Error('לא נמצאו vertices בקובץ');
-            }
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            
-            if (faces.length > 0) {
-                geometry.setIndex(faces);
-            }
-            
-            geometry.computeVertexNormals();
-            return geometry;
-        }
-
-        function loadSTLFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        // בדוק אם ה-header מכיל את ה-magic string
-                        const headerBytes = new Uint8Array(e.target.result, 0, 80);
-                        const headerText = new TextDecoder().decode(headerBytes);
-                        const isAligned = headerText.includes('DIGIALIGNED');
-                        const geometry = parseSTL(e.target.result);
-                        if (geometry) {
-                            geometry.userData = { isAligned };
-                            resolve([geometry]);
-                        } else {
-                            reject(new Error('Failed to parse STL'));
-                        }
-                    } catch (err) {
-                        reject(new Error('שגיאה בניתוח STL: ' + err.message));
-                    }
-                };
-                reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
-                reader.readAsArrayBuffer(file);
-            });
-        }
-
-        function parseSTL(buffer) {
-            const view = new DataView(buffer);
-            const header = new Uint8Array(buffer, 0, 5);
-            const headerText = String.fromCharCode.apply(null, header);
-            const isASCII = headerText === 'solid';
-            
-            if (isASCII) {
-                const text = new TextDecoder().decode(buffer);
-                return parseSTLASCII(text);
-            } else {
-                return parseSTLBinary(view);
-            }
-        }
-
-        function parseSTLBinary(view) {
-            if (view.byteLength < 84) {
-                throw new Error('קובץ STL קצר מדי');
-            }
-            
-            const triangles = view.getUint32(80, true);
-            const expectedLength = 84 + triangles * 50;
-            
-            if (view.byteLength < expectedLength) {
-                throw new Error('גודל קובץ STL לא תואם');
-            }
-            
-            const vertices = [];
-
-            for (let i = 0; i < triangles; i++) {
-                const offset = 84 + i * 50;
-                
-                for (let j = 0; j < 3; j++) {
-                    const x = view.getFloat32(offset + 12 + j * 12, true);
-                    const y = view.getFloat32(offset + 16 + j * 12, true);
-                    const z = view.getFloat32(offset + 20 + j * 12, true);
-                    
-                    if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-                        vertices.push(x, y, z);
-                    }
-                }
-            }
-
-            if (vertices.length === 0) {
-                throw new Error('לא נמצאו vertices תקינים');
-            }
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geometry.computeVertexNormals();
-            return geometry;
-        }
-
-        function parseSTLASCII(text) {
-            const vertices = [];
-            const lines = text.split('\n');
-            
-            for (let line of lines) {
-                line = line.trim();
-                if (line.startsWith('vertex')) {
-                    const parts = line.split(/\s+/);
-                    if (parts.length >= 4) {
-                        const x = parseFloat(parts[1]);
-                        const y = parseFloat(parts[2]);
-                        const z = parseFloat(parts[3]);
-                        
-                        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-                            vertices.push(x, y, z);
-                        }
-                    }
-                }
-            }
-
-            if (vertices.length === 0) {
-                throw new Error('לא נמצאו vertices בקובץ');
-            }
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geometry.computeVertexNormals();
-            return geometry;
-        }
-
-        function loadGLTFFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const extension = file.name.split('.').pop().toLowerCase();
-                        let gltfData;
-                        
-                        if (extension === 'gltf') {
-                            const text = new TextDecoder().decode(e.target.result);
-                            gltfData = JSON.parse(text);
-                        } else if (extension === 'glb') {
-                            gltfData = parseGLB(e.target.result);
-                        }
-                        
-                        const geometries = parseGLTF(gltfData);
-                        if (geometries && geometries.length > 0) {
-                            resolve(geometries);
-                        } else {
-                            reject(new Error('לא נמצאו geometries בקובץ GLTF/GLB'));
-                        }
-                    } catch (err) {
-                        reject(new Error('שגיאה בניתוח GLTF/GLB: ' + err.message));
-                    }
-                };
-                reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
-                reader.readAsArrayBuffer(file);
-            });
-        }
-
-        function parseGLB(arrayBuffer) {
-            const view = new DataView(arrayBuffer);
-            
-            const magic = view.getUint32(0, true);
-            if (magic !== 0x46546C67) {
-                throw new Error('זה לא קובץ GLB תקין');
-            }
-            
-            const version = view.getUint32(4, true);
-            const length = view.getUint32(8, true);
-            
-            const jsonChunkLength = view.getUint32(12, true);
-            const jsonChunkType = view.getUint32(16, true);
-            
-            if (jsonChunkType !== 0x4E4F534A) {
-                throw new Error('פורמט GLB לא תקין');
-            }
-            
-            const jsonData = new Uint8Array(arrayBuffer, 20, jsonChunkLength);
-            const jsonText = new TextDecoder().decode(jsonData);
-            const gltf = JSON.parse(jsonText);
-            
-            if (20 + jsonChunkLength + 8 <= length) {
-                const binaryChunkLength = view.getUint32(20 + jsonChunkLength, true);
-                const binaryChunkType = view.getUint32(20 + jsonChunkLength + 4, true);
-                
-                if (binaryChunkType === 0x004E4942) {
-                    const binaryData = arrayBuffer.slice(20 + jsonChunkLength + 8, 20 + jsonChunkLength + 8 + binaryChunkLength);
-                    gltf.binaryData = binaryData;
-                }
-            }
-            
-            return gltf;
-        }
-
-        function parseGLTF(gltf) {
-            const geometries = [];
-            
-            if (!gltf.meshes || gltf.meshes.length === 0) {
-                throw new Error('לא נמצאו meshes בקובץ GLTF');
-            }
-            
-            gltf.meshes.forEach(mesh => {
-                mesh.primitives.forEach(primitive => {
-                    try {
-                        const geometry = parsePrimitive(primitive, gltf);
-                        if (geometry) {
-                            geometries.push(geometry);
-                        }
-                    } catch (err) {
-                        console.warn('שגיאה בניתוח primitive:', err);
-                    }
-                });
-            });
-            
-            return geometries;
-        }
-
-        function parsePrimitive(primitive, gltf) {
-            const geometry = new THREE.BufferGeometry();
-            
-            if (primitive.attributes.POSITION !== undefined) {
-                const positionAccessor = gltf.accessors[primitive.attributes.POSITION];
-                const positions = getAccessorData(positionAccessor, gltf);
-                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-            } else {
-                throw new Error('לא נמצא POSITION attribute');
-            }
-            
-            if (primitive.attributes.NORMAL !== undefined) {
-                const normalAccessor = gltf.accessors[primitive.attributes.NORMAL];
-                const normals = getAccessorData(normalAccessor, gltf);
-                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-            }
-            
-            if (primitive.indices !== undefined) {
-                const indexAccessor = gltf.accessors[primitive.indices];
-                const indices = getAccessorData(indexAccessor, gltf);
-                geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-            }
-            
-            if (primitive.attributes.NORMAL === undefined) {
-                geometry.computeVertexNormals();
-            }
-            
-            return geometry;
-        }
-
-        function getAccessorData(accessor, gltf) {
-            const bufferView = gltf.bufferViews[accessor.bufferView];
-            const buffer = gltf.buffers[bufferView.buffer];
-            
-            let arrayBuffer;
-            if (gltf.binaryData) {
-                arrayBuffer = gltf.binaryData;
-            } else {
-                throw new Error('רק GLB נתמך כרגע (GLTF עם קבצים חיצוניים אינו נתמך)');
-            }
-            
-            const byteOffset = (bufferView.byteOffset || 0) + (accessor.byteOffset || 0);
-            const componentType = accessor.componentType;
-            const count = accessor.count;
-            const type = accessor.type;
-            
-            let TypedArray;
-            let componentSize;
-            switch (componentType) {
-                case 5120: TypedArray = Int8Array; componentSize = 1; break;
-                case 5121: TypedArray = Uint8Array; componentSize = 1; break;
-                case 5122: TypedArray = Int16Array; componentSize = 2; break;
-                case 5123: TypedArray = Uint16Array; componentSize = 2; break;
-                case 5125: TypedArray = Uint32Array; componentSize = 4; break;
-                case 5126: TypedArray = Float32Array; componentSize = 4; break;
-                default: throw new Error('Component type לא נתמך: ' + componentType);
-            }
-            
-            let numComponents;
-            switch (type) {
-                case 'SCALAR': numComponents = 1; break;
-                case 'VEC2': numComponents = 2; break;
-                case 'VEC3': numComponents = 3; break;
-                case 'VEC4': numComponents = 4; break;
-                case 'MAT2': numComponents = 4; break;
-                case 'MAT3': numComponents = 9; break;
-                case 'MAT4': numComponents = 16; break;
-                default: throw new Error('Type לא נתמך: ' + type);
-            }
-            
-            const elementSize = numComponents * componentSize;
-            const stride = bufferView.byteStride || elementSize;
-            
-            const data = new TypedArray(count * numComponents);
-            
-            if (stride === elementSize) {
-                const sourceView = new TypedArray(arrayBuffer, byteOffset, count * numComponents);
-                data.set(sourceView);
-            } else {
-                const sourceView = new DataView(arrayBuffer, byteOffset);
-                for (let i = 0; i < count; i++) {
-                    for (let j = 0; j < numComponents; j++) {
-                        const offset = i * stride + j * componentSize;
-                        if (TypedArray === Float32Array) {
-                            data[i * numComponents + j] = sourceView.getFloat32(offset, true);
-                        } else if (TypedArray === Uint16Array) {
-                            data[i * numComponents + j] = sourceView.getUint16(offset, true);
-                        } else if (TypedArray === Uint32Array) {
-                            data[i * numComponents + j] = sourceView.getUint32(offset, true);
-                        } else if (TypedArray === Int16Array) {
-                            data[i * numComponents + j] = sourceView.getInt16(offset, true);
-                        } else if (TypedArray === Uint8Array) {
-                            data[i * numComponents + j] = sourceView.getUint8(offset);
-                        } else if (TypedArray === Int8Array) {
-                            data[i * numComponents + j] = sourceView.getInt8(offset);
-                        }
-                    }
-                }
-            }
-            
-            return data;
-        }
-
-        function calculateGlobalBoundingBox() {
-            globalBoundingBox = new THREE.Box3();
-            
-            models.forEach(model => {
-                if (model.visible) {
-                    const modelBox = new THREE.Box3().setFromObject(model.group);
-                    globalBoundingBox.union(modelBox);
-                }
-            });
-        }
-
-        async function addModelFromFile(file, color, unit = 'm') {
-            try {
-                let geometries;
-                const extension = file.name.split('.').pop().toLowerCase();
-                
-                if (extension === 'obj') {
-                    geometries = await loadOBJFile(file);
-                } else if (extension === 'stl') {
-                    geometries = await loadSTLFile(file);
-                } else if (extension === 'glb' || extension === 'gltf') {
-                    geometries = await loadGLTFFile(file);
-                } else {
-                    throw new Error('פורמט קובץ לא נתמך. השתמש ב-OBJ, STL, GLB או GLTF');
-                }
-
-                if (!geometries || geometries.length === 0) {
-                    throw new Error('לא הצלחתי לטעון את הגיאומטריה');
-                }
-
-                const mainGroup = new THREE.Group();
-                const isAligned = geometries.some(g => g.userData && g.userData.isAligned);
-
-                geometries.forEach((geometry, index) => {
-                    if (!geometry || !geometry.attributes.position) {
-                        console.warn('דילגתי על geometry לא תקין');
-                        return;
-                    }
-
-                    if (!isAligned) {
-                        geometry.center();
-                    }
-                    geometry.computeBoundingBox();
-                    
-                    const material = new THREE.MeshStandardMaterial({ 
-                        color: color,
-                        transparent: true,
-                        opacity: 0.85,
-                        side: THREE.DoubleSide,
-                        flatShading: false
-                    });
-                    
-                    const mesh = new THREE.Mesh(geometry, material);
-                    mainGroup.add(mesh);
-                });
-
-                if (mainGroup.children.length === 0) {
-                    throw new Error('לא נמצאו meshes תקינים');
-                }
-
-                if (!isAligned) {
-                    const box = new THREE.Box3().setFromObject(mainGroup);
-                    const size = new THREE.Vector3();
-                    box.getSize(size);
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    if (maxDim > 0) {
-                        const targetSize = 4;
-                        const scale = targetSize / maxDim;
-                        mainGroup.scale.set(scale, scale, scale);
-                    }
-                    mainGroup.position.y = 0;
-                }
-                scene.add(mainGroup);
-
-                const modelData = {
-                    id: modelCounter++,
-                    name: file.name,
-                    date: new Date().toLocaleString('he-IL'),
-                    group: mainGroup,
-                    meshes: mainGroup.children,
-                    visible: true,
-                    originalGeometries: mainGroup.children.map(mesh => mesh.geometry.clone()),
-                    color: color,
-                    unit: unit
-                };
-
-                models.push(modelData);
-                restoreModelTransform(modelData);
-                saveModelToIDB(modelData);
-                updateModelList();
-                calculateGlobalBoundingBox();
-                
-                if (models.length === 1) {
-                    adjustCameraToModel();
-                }
-                
-                return modelData;
-            } catch (error) {
-                console.error('Error loading model:', error);
-                throw error;
-            }
-        }
-
-        function adjustCameraToModel() {
-            if (models.length === 0) return;
-            
-            calculateGlobalBoundingBox();
-            
-            const size = new THREE.Vector3();
-            globalBoundingBox.getSize(size);
-            const maxDim = Math.max(size.x, size.y, size.z);
-            cameraDistance = maxDim * 2;
-            
-            updateCameraPosition();
-        }
-
-        function updateModelList() {
-            const listContainer = document.getElementById('modelList');
-            listContainer.innerHTML = '';
-
-            models.forEach(model => {
-                const extension = model.name.split('.').pop().toUpperCase();
-                const colorInfo = colorNames[model.color] || { name: 'לא ידוע', hex: '#999999' };
-                
-                const item = document.createElement('div');
-                item.className = 'model-item';
-                item.innerHTML = `
-                    <div>
-                        <div class="model-name">
-                            <div class="color-indicator" style="background-color: ${colorInfo.hex}"></div>
-                            <div class="flex-grow">
-                                ${model.name}
-                                <div class="color-name"><span data-i18n="colorLabel">צבע</span>: ${colorInfo.name} &nbsp;|&nbsp; 📐 ${model.unit || '?'}</div>
-                            </div>
-                        </div>
-                        <div class="model-date">${model.date}</div>
-                        <div class="model-controls">
-                            <span class="visibility-toggle ${model.visible ? 'visible' : ''}" onclick="toggleVisibility(${model.id})">
-                                ${model.visible ? '👁️' : '🚫'}
-                            </span>
-                            <span class="visibility-toggle" onclick="rotateModelY(${model.id})">🔄Y</span>
-                            <span class="visibility-toggle" onclick="rotateModelX(${model.id})">🔄X</span>
-                            <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">🔄Z</span>
-                            <span class="align-btn ${alignState.selectingModel === model.id ? 'active' : ''}" onclick="selectModelForAlignment(${model.id})">📍</span>
-                            <span class="delete-btn" onclick="deleteModel(${model.id})">🗑️</span>
-                        </div>
-                    </div>
-                `;
-                listContainer.appendChild(item);
-            });
-        }
-
-        function toggleVisibility(id) {
-            const model = models.find(m => m.id === id);
-            if (model) {
-                model.visible = !model.visible;
-                model.group.visible = model.visible;
-                calculateGlobalBoundingBox();
-                applyCuts();
-                updateModelList();
-                saveSession();
-            }
-        }
-
-        function rotateModelY(id) {
-            const model = models.find(m => m.id === id);
-            if (model) {
-                model.group.rotation.y += Math.PI / 2;
-                calculateGlobalBoundingBox();
-                applyCuts();
-                saveSession();
-            }
-        }
-
-        function rotateModelZ(id) {
-            const model = models.find(m => m.id === id);
-            if (model) {
-                model.group.rotation.z += Math.PI / 2;
-                calculateGlobalBoundingBox();
-                applyCuts();
-                saveSession();
-            }
-        }
-
-        function rotateModelX(id) {
-            const model = models.find(m => m.id === id);
-            if (model) {
-                model.group.rotation.x += Math.PI / 2;
-                calculateGlobalBoundingBox();
-                applyCuts();
-                saveSession();
-            }
-        }
-
-        function deleteModel(id) {
-            const index = models.findIndex(m => m.id === id);
-            if (index !== -1) {
-                const removedModelId = models[index].id;
-                const removedName = models[index].name;
-                scene.remove(models[index].group);
-                models.splice(index, 1);
-
-                // remove any alignment markers associated with the deleted model
-                for (let i = alignState.markers.length - 1; i >= 0; i--) {
-                    if (alignState.markers[i].modelId === removedModelId) {
-                        const mesh = alignState.markers[i].mesh;
-                        if (mesh && mesh.parent) mesh.parent.remove(mesh);
-                        alignState.markers.splice(i, 1);
-                    }
-                }
-
-                calculateGlobalBoundingBox();
-                applyCuts();
-                updateModelList();
-                saveSession();
-                idbDelete(removedName).catch(()=>{});
-            }
-        }
-
-        function applyCuts() {
-            if (!globalBoundingBox || models.length === 0) return;
-
-            const cutYRatio = parseFloat(document.getElementById('cutY').value) / 100;
-            const cutXRatio = parseFloat(document.getElementById('cutX').value) / 100;
-            const cutZRatio = parseFloat(document.getElementById('cutZ').value) / 100;
-
-            const minY = globalBoundingBox.min.y;
-            const maxY = globalBoundingBox.max.y;
-            const cutYWorld = maxY - (maxY - minY) * cutYRatio;
-
-            const minX = globalBoundingBox.min.x;
-            const maxX = globalBoundingBox.max.x;
-            const cutXWorld = minX + (maxX - minX) * cutXRatio;
-
-            const minZ = globalBoundingBox.min.z;
-            const maxZ = globalBoundingBox.max.z;
-            const cutZWorld = minZ + (maxZ - minZ) * cutZRatio;
-
-            models.forEach(model => {
-                if (!model.visible) return;
-
-                const worldMatrix = model.group.matrixWorld;
-                
-                const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
-                const originalGeos = model.originalGeometries || (model.originalGeometry ? [model.originalGeometry] : []);
-
-                meshes.forEach((mesh, meshIndex) => {
-                    const originalGeo = originalGeos[meshIndex];
-                    if (!originalGeo) return;
-
-                    const positions = originalGeo.attributes.position.array;
-                    const newPositions = [];
-                    const newIndices = [];
-                    
-                    if (originalGeo.index) {
-                        const indices = originalGeo.index.array;
-                        for (let i = 0; i < indices.length; i += 3) {
-                            const i0 = indices[i] * 3;
-                            const i1 = indices[i + 1] * 3;
-                            const i2 = indices[i + 2] * 3;
-                            
-                            const v0 = new THREE.Vector3(positions[i0], positions[i0 + 1], positions[i0 + 2]);
-                            const v1 = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
-                            const v2 = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
-                            
-                            v0.applyMatrix4(worldMatrix);
-                            v1.applyMatrix4(worldMatrix);
-                            v2.applyMatrix4(worldMatrix);
-                            
-                            if (v0.y <= cutYWorld && v1.y <= cutYWorld && v2.y <= cutYWorld &&
-                                v0.x >= cutXWorld && v1.x >= cutXWorld && v2.x >= cutXWorld &&
-                                v0.z >= cutZWorld && v1.z >= cutZWorld && v2.z >= cutZWorld) {
-                                
-                                const baseIdx = newPositions.length / 3;
-                                newPositions.push(
-                                    positions[i0], positions[i0 + 1], positions[i0 + 2],
-                                    positions[i1], positions[i1 + 1], positions[i1 + 2],
-                                    positions[i2], positions[i2 + 1], positions[i2 + 2]
-                                );
-                                newIndices.push(baseIdx, baseIdx + 1, baseIdx + 2);
-                            }
-                        }
-                    } else {
-                        for (let i = 0; i < positions.length; i += 9) {
-                            const v0 = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
-                            const v1 = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
-                            const v2 = new THREE.Vector3(positions[i + 6], positions[i + 7], positions[i + 8]);
-                            
-                            v0.applyMatrix4(worldMatrix);
-                            v1.applyMatrix4(worldMatrix);
-                            v2.applyMatrix4(worldMatrix);
-                            
-                            if (v0.y <= cutYWorld && v1.y <= cutYWorld && v2.y <= cutYWorld &&
-                                v0.x >= cutXWorld && v1.x >= cutXWorld && v2.x >= cutXWorld &&
-                                v0.z >= cutZWorld && v1.z >= cutZWorld && v2.z >= cutZWorld) {
-                                
-                                for (let j = 0; j < 9; j++) {
-                                    newPositions.push(positions[i + j]);
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (newPositions.length > 0) {
-                        const newGeometry = new THREE.BufferGeometry();
-                        newGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
-                        if (newIndices.length > 0) {
-                            newGeometry.setIndex(newIndices);
-                        }
-                        newGeometry.computeVertexNormals();
-                        
-                        mesh.geometry.dispose();
-                        mesh.geometry = newGeometry;
-                        mesh.visible = true;
-                    } else {
-                        mesh.visible = false;
-                    }
-                });
-            });
-        }
-
-        // ===== סרגל קנה מידה =====
-        let rulerState = {
-            active: false,
-            points: [],      // THREE.Vector3 world points
-            markers: [],     // sphere meshes in scene
-            line: null,      // THREE.Line object
-            modelUnit: 'm'   // unit of the model clicked
-        };
-
-        function setRulerBtnStyle(active, finished) {
-            const color = finished ? '#5a7a5a' : active ? '#8a5a5a' : '#5a5a8a';
-            ['rulerBtn','rulerBtnFS'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.background = color;
-            });
-        }
-
-        function toggleRuler() {
-            if (rulerState.active) {
-                cancelRuler();
-            } else {
-                if (!scene) { alert('העלה מודל תחילה'); return; }
-                rulerState.active = true;
-                rulerState.points = [];
-                clearRulerObjects();
-                setRulerBtnStyle(true, false);
-                document.getElementById('canvas-container').style.cursor = 'crosshair';
-                showRulerOverlay('📏 לחץ על נקודה ראשונה במודל');
-            }
-        }
-
-        function cancelRuler() {
-            rulerState.active = false;
-            clearRulerObjects();
-            setRulerBtnStyle(false, false);
-            document.getElementById('canvas-container').style.cursor = '';
-            document.getElementById('rulerOverlay').style.display = 'none';
-        }
-
-        function clearRulerObjects() {
-            rulerState.markers.forEach(m => scene && scene.remove(m));
-            rulerState.markers = [];
-            if (rulerState.line) { scene && scene.remove(rulerState.line); rulerState.line = null; }
-            rulerState.points = [];
-        }
-
-        function showRulerOverlay(text) {
-            const el = document.getElementById('rulerOverlay');
-            el.style.display = 'block';
-            el.textContent = text;
-        }
-
-        function pickRulerPoint(clientX, clientY) {
-            const container = document.getElementById('canvas-container');
-            const rect = container.getBoundingClientRect();
-            const mx = ((clientX - rect.left) / rect.width) * 2 - 1;
-            const my = -((clientY - rect.top) / rect.height) * 2 + 1;
-
-            raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
-
-            // intersect all visible model meshes (excluding markers/sprites)
-            const allMeshes = [];
-            let hitUnit = 'm';
-            models.forEach(model => {
-                if (!model.visible) return;
-                const meshes = model.meshes || [];
-                meshes.forEach(mesh => {
-                    if (mesh.visible && !(mesh.userData && mesh.userData.label) && !mesh.isSprite) {
-                        allMeshes.push(mesh);
-                        // track which model this mesh belongs to for unit
-                        mesh._modelRef = model;
-                    }
-                });
-            });
-
-            const intersects = raycaster.intersectObjects(allMeshes, false);
-            if (intersects.length === 0) return;
-
-            const hit = intersects[0];
-            const point = hit.point.clone();
-            hitUnit = (hit.object._modelRef && hit.object._modelRef.unit) || 'm';
-
-            // add small sphere marker — rendered on top of everything
-            const sphereGeo = new THREE.SphereGeometry(0.05, 8, 8);
-            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false });
-            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-            sphere.position.copy(point);
-            sphere.renderOrder = 999;
-            scene.add(sphere);
-            rulerState.markers.push(sphere);
-            rulerState.points.push(point);
-
-            if (rulerState.points.length === 1) {
-                rulerState.modelUnit = hitUnit;
-                showRulerOverlay('📏 לחץ על נקודה שנייה');
-            } else if (rulerState.points.length === 2) {
-                // draw line — rendered on top of everything
-                const lineGeo = new THREE.BufferGeometry().setFromPoints(rulerState.points);
-                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, depthTest: false });
-                rulerState.line = new THREE.Line(lineGeo, lineMat);
-                rulerState.line.renderOrder = 999;
-                scene.add(rulerState.line);
-
-                // calculate distance in 3D scene units, then convert to real units
-                const distScene = rulerState.points[0].distanceTo(rulerState.points[1]);
-
-                // scene units are normalized to targetSize=4 for the original bounding box
-                // we need to back-convert: find the model that was hit and use its scale
-                const hitModel = allMeshes[0]?._modelRef;
-                let distReal = distScene;
-                let unitLabel = rulerState.modelUnit;
-
-                if (hitModel && hitModel.group) {
-                    // scale of group = targetSize / originalMaxDim  →  originalMaxDim / targetSize = 1/scale
-                    const sc = hitModel.group.scale.x; // uniform scale
-                    if (sc && sc !== 1) {
-                        // scene units / sc = original file units
-                        distReal = distScene / sc;
-                    }
-                }
-
-                // convert to readable value
-                const formatted = formatDistance(distReal, unitLabel);
-                showRulerOverlay(`📏 מרחק: ${formatted}   (לחץ 📏 לסגירה)`);
-
-                // keep active=false so user can rotate, but keep display
-                rulerState.active = false;
-                setRulerBtnStyle(false, true);
-                document.getElementById('canvas-container').style.cursor = '';
-            }
-        }
-
-        function formatDistance(val, unit) {
-            // convert to meters first, then display nicely
-            const toM = UNIT_TO_METERS[unit] || 1;
-            const meters = val * toM;
-
-            if (meters >= 1000) return (meters / 1000).toFixed(3) + ' km';
-            if (meters >= 1)    return meters.toFixed(4) + ' m';
-            if (meters >= 0.01) return (meters * 100).toFixed(3) + ' cm';
-            return (meters * 1000).toFixed(3) + ' mm';
-        }
-        const UNIT_TO_METERS = { mm: 0.001, cm: 0.01, m: 1, inch: 0.0254, ft: 0.3048 };
-        let pendingFiles = [];
-        let pendingColors = [];
-
-        document.getElementById('fileInput').addEventListener('change', async (e) => {
-            const files = Array.from(e.target.files);
-            if (files.length === 0) return;
-            if (!scene) initThreeJS();
-            e.target.value = '';
-
-            const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
-            pendingFiles = files;
-            pendingColors = files.map((_, i) => colors[(models.length + i) % colors.length]);
-
-            // GLB/GLTF תמיד מטר — רק STL/OBJ שאינם aligned צריכים שאלה
-            const needsUnits = files.filter(f => {
-                const ext = f.name.split('.').pop().toLowerCase();
-                return (ext === 'stl' || ext === 'obj');
-            });
-
-            if (needsUnits.length === 0) {
-                // הכל GLB/GLTF — טען ישירות
-                await loadPendingFiles('m');
-                return;
-            }
-
-            // בנה תיאור
-            const glbCount = files.length - needsUnits.length;
-            let desc = `העלית ${files.length} קבצים.`;
-            if (glbCount > 0) desc += ` ${glbCount} קבצי GLB/GLTF יוגדרו אוטומטית כמטר.`;
-            desc += ` בחר יחידת מידה עבור ${needsUnits.map(f=>f.name).join(', ')}:`;
-            document.getElementById('unitsModalDesc').textContent = desc;
-
-            // הכן רשימת per-model (תוצג רק אם יש פער גדול)
-            const perList = document.getElementById('unitsPerModelList');
-            perList.innerHTML = '';
-            needsUnits.forEach(f => {
-                const row = document.createElement('div');
-                row.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px;';
-                row.innerHTML = `
-                    <span style="flex:1;font-size:0.85em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>
-                    <select data-filename="${f.name}" style="padding:5px;border-radius:5px;background:#2a2a3e;color:#eee;border:1px solid #555;font-size:0.85em;">
-                        <option value="mm">mm</option>
-                        <option value="cm">cm</option>
-                        <option value="m" selected>m</option>
-                        <option value="inch">inch</option>
-                        <option value="ft">ft</option>
-                    </select>`;
-                perList.appendChild(row);
-            });
-
-            // בדוק אם צריך להציג אזהרת פער גדול — על בסיס גודל קובץ כ-proxy גס
-            // (גודל אמיתי נבדק אחרי טעינה — כאן נציג תמיד האפשרות)
-            document.getElementById('unitsPerModelSection').style.display = needsUnits.length > 1 ? 'block' : 'none';
-
-            const modal = document.getElementById('unitsModal');
-            modal.style.display = 'flex';
-        });
-
-        async function confirmUnits() {
-            document.getElementById('unitsModal').style.display = 'none';
-            const globalUnit = document.getElementById('unitsGlobalSelect').value;
-
-            // בנה מפה: שם קובץ → יחידה
-            const perModelUnits = {};
-            document.querySelectorAll('#unitsPerModelList select').forEach(sel => {
-                perModelUnits[sel.dataset.filename] = sel.value;
-            });
-
-            await loadPendingFiles(globalUnit, perModelUnits);
-        }
-
-        async function loadPendingFiles(defaultUnit, perModelUnits = {}) {
-            const uploadBox = document.getElementById('uploadBox');
-            const loadingMsg = document.getElementById('loadingMessage');
-            uploadBox.classList.add('loading');
-            loadingMsg.classList.remove('hidden');
-
-            const loadedModels = [];
-            for (let i = 0; i < pendingFiles.length; i++) {
-                const file = pendingFiles[i];
-                const color = pendingColors[i];
-                const ext = file.name.split('.').pop().toLowerCase();
-
-                // GLB/GLTF = מטר תמיד
-                let unit;
-                if (ext === 'glb' || ext === 'gltf') {
-                    unit = 'm';
-                } else {
-                    unit = perModelUnits[file.name] || defaultUnit;
-                }
-
-                try {
-                    loadingMsg.textContent = `טוען ${file.name}...`;
-                    const model = await addModelFromFile(file, color, unit);
-                    if (model) loadedModels.push({ model, unit });
-                } catch (error) {
-                    alert(`שגיאה בטעינת ${file.name}: ${error.message}`);
-                }
-            }
-
-            uploadBox.classList.remove('loading');
-            loadingMsg.classList.add('hidden');
-
-            // בדוק פערי גודל בין מודלים שנטענו עכשיו (ומודלים קיימים)
-            checkSizeDiscrepancy(loadedModels);
-        }
-
-        function checkSizeDiscrepancy(newlyLoaded) {
-            if (models.length < 2) return;
-            const sizes = models.map(m => {
-                const box = new THREE.Box3().setFromObject(m.group);
-                const s = new THREE.Vector3(); box.getSize(s);
-                return { id: m.id, name: m.name, size: Math.max(s.x, s.y, s.z), unit: m.unit };
-            });
-            const allSizes = sizes.map(s => s.size);
-            const median = allSizes.slice().sort((a,b)=>a-b)[Math.floor(allSizes.length/2)];
-            const outliers = sizes.filter(s => s.size > median * 9 || s.size < median / 9);
-            if (outliers.length > 0) {
-                const names = outliers.map(o => `"${o.name}"`).join(', ');
-                setTimeout(() => {
-                    alert(`⚠️ נמצא הבדל גדול בגודל:\n${names} ${outliers.length===1?'גדול/קטן':'גדולים/קטנים'} בצורה חריגה ביחס לשאר.\n\nייתכן שיחידות המידה שגויות. תוכל למחוק ולהעלות שוב עם יחידה אחרת.`);
-                }, 300);
-            }
-        }
-
-        document.getElementById('cutY').addEventListener('input', (e) => {
-            const value = e.target.value;
-            document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${value}%`;
-            applyCuts();
-            saveSession();
-        });
-
-        document.getElementById('cutX').addEventListener('input', (e) => {
-            const value = e.target.value;
-            document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${value}%`;
-            applyCuts();
-            saveSession();
-        });
-
-        document.getElementById('cutZ').addEventListener('input', (e) => {
-            const value = e.target.value;
-            document.getElementById('cutZValue').textContent = `חיתוך עומק: ${value}%`;
-            applyCuts();
-            saveSession();
-        });
-
-        document.getElementById('cutYFS').addEventListener('input', (e) => {
-            const value = e.target.value;
-            document.getElementById('cutYValueFS').textContent = `חיתוך אנכי: ${value}%`;
-            document.getElementById('cutY').value = value;
-            document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${value}%`;
-            applyCuts();
-        });
-
-        document.getElementById('cutXFS').addEventListener('input', (e) => {
-            const value = e.target.value;
-            document.getElementById('cutXValueFS').textContent = `חיתוך רוחב: ${value}%`;
-            document.getElementById('cutX').value = value;
-            document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${value}%`;
-            applyCuts();
-        });
-
-        document.getElementById('cutZFS').addEventListener('input', (e) => {
-            const value = e.target.value;
-            document.getElementById('cutZValueFS').textContent = `חיתוך עומק: ${value}%`;
-            document.getElementById('cutZ').value = value;
-            document.getElementById('cutZValue').textContent = `חיתוך עומק: ${value}%`;
-            applyCuts();
-        });
-
-        function toggleFullscreen() {
-            const body = document.body;
-            const controls = document.getElementById('fullscreenControls');
-            const closeBtn = document.querySelector('.close-fullscreen');
-            
-            body.classList.toggle('fullscreen-mode');
-            controls.classList.toggle('active');
-            closeBtn.classList.toggle('active');
-            
-            if (body.classList.contains('fullscreen-mode')) {
-                document.getElementById('cutYFS').value = document.getElementById('cutY').value;
-                document.getElementById('cutXFS').value = document.getElementById('cutX').value;
-                document.getElementById('cutZFS').value = document.getElementById('cutZ').value;
-                
-                document.getElementById('cutYValueFS').textContent = document.getElementById('cutYValue').textContent;
-                document.getElementById('cutXValueFS').textContent = document.getElementById('cutXValue').textContent;
-                document.getElementById('cutZValueFS').textContent = document.getElementById('cutZValue').textContent;
-            }
-            
-            setTimeout(() => {
-                if (renderer && camera) {
-                    const container = document.getElementById('canvas-container');
-                    camera.aspect = container.clientWidth / container.clientHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(container.clientWidth, container.clientHeight);
-                }
-            }, 100);
-        }
-
-        async function loadReadme() {
-            try {
-                // Try to fetch README.md from the server
-                const response = await fetch('README.md');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const markdown = await response.text();
-                
-                // Convert markdown to HTML using marked.js
-                const html = marked.parse(markdown);
-                
-                // Wrap content with proper RTL styling
-                const wrappedHtml = `<div class="readme-content">${html}</div>`;
-                
-                document.getElementById('helpContent').innerHTML = wrappedHtml;
-            } catch (error) {
-                console.error('Error loading README:', error);
-                
-                // Fallback to embedded template if fetch fails
-                try {
-                    const markdown = document.getElementById('readmeTemplate').textContent;
-                    const html = marked.parse(markdown);
-                    const wrappedHtml = `<div class="readme-content">${html}</div>`;
-                    document.getElementById('helpContent').innerHTML = wrappedHtml;
-                    console.log('Loaded from embedded template');
-                } catch (fallbackError) {
-                    console.error('Fallback also failed:', fallbackError);
-                    document.getElementById('helpContent').innerHTML = `
-                        <div class="error-message">
-                            <h3>⚠️ שגיאה בטעינת מדריך העזרה</h3>
-                            <p>לא ניתן לטעון את התוכן. אנא רענן את הדף ונסה שוב.</p>
-                        </div>
-                    `;
-                }
-            }
-        }
-
-        function toggleHelp() {
-            const modal = document.getElementById('helpModal');
-            if (modal.style.display === 'block') {
-                modal.style.display = 'none';
-            } else {
-                modal.style.display = 'block';
-                // Load README if not already loaded
-                if (document.querySelector('.loading-help')) {
-                    loadReadme();
-                }
-            }
-        }
-
-        // Close modal when clicking outside of it
-        window.addEventListener('click', (event) => {
-            const modal = document.getElementById('helpModal');
-            if (event.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
-
-        window.addEventListener('resize', () => {
-            if (renderer && camera) {
-                const container = document.getElementById('canvas-container');
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
-            }
-        });
-
-        // ===== פונקציות יישור גמיש =====
-
-        function selectModelForAlignment(modelId) {
-            const model = models.find(m => m.id === modelId);
-            if (!model || !model.visible) {
-                alert('המודל חייב להיות גלוי כדי לבחור בו ליישור');
-                return;
-            }
-
-            if (!alignState.active) {
-                // התחלת מצב יישור
-                alignState.active = true;
-                alignState.selectingModel = modelId;
-                alignState.model1 = modelId;
-                alignState.points1 = [];
-                document.getElementById('alignSection').classList.remove('hidden');
-                document.getElementById('canvas-container').classList.add('align-mode');
-                updateAlignStatus('בחר נקודות על ' + model.name + ' (לפחות ' + alignState.minPoints + ')');
-                updatePointCounter();
-                showAlignButtons();
-            } else if (alignState.model1 === modelId) {
-                // המשך עבודה עם מודל 1
-                alignState.selectingModel = modelId;
-                updateAlignStatus('בחר נקודות נוספות על ' + model.name);
-            } else if (alignState.model2 === modelId) {
-                // המשך עבודה עם מודל 2
-                alignState.selectingModel = modelId;
-                updateAlignStatus('בחר נקודות נוספות על ' + model.name);
-            } else if (!alignState.model2 && alignState.points1.length >= alignState.minPoints) {
-                // בחירת מודל שני
-                alignState.model2 = modelId;
-                alignState.selectingModel = modelId;
-                alignState.points2 = [];
-                updateAlignStatus('בחר ' + alignState.points1.length + ' נקודות על ' + model.name);
-                updatePointCounter();
-            } else {
-                alert('תחילה בחר לפחות ' + alignState.minPoints + ' נקודות במודל הראשון');
-            }
-
-            updateModelList();
-        }
-
-        function selectAlignmentPoint(screenX, screenY) {
-            const container = document.getElementById('canvas-container');
-            const rect = container.getBoundingClientRect();
-            
-            raycaster.setFromCamera(mouse, camera);
-            
-            const currentModel = models.find(m => m.id === alignState.selectingModel);
-            if (!currentModel) return;
-
-            const meshes = currentModel.meshes || (currentModel.mesh ? [currentModel.mesh] : []);
-            const intersects = raycaster.intersectObjects(meshes, true);
-
-            if (intersects.length > 0) {
-                const point = intersects[0].point.clone();
-                
-                if (alignState.selectingModel === alignState.model1) {
-                    alignState.points1.push(point);
-                    add3DPointMarker(point.clone(), `M1-${alignState.points1.length}`, currentModel.id);
-                    
-                    if (alignState.points1.length >= alignState.minPoints) {
-                        updateAlignStatus('יש לך ' + alignState.points1.length + ' נקודות. לחץ "סיים מודל" או הוסף עוד נקודות');
-                    } else {
-                        updateAlignStatus('בחר עוד ' + (alignState.minPoints - alignState.points1.length) + ' נקודות לפחות');
-                    }
-                } else if (alignState.selectingModel === alignState.model2) {
-                    alignState.points2.push(point);
-                    add3DPointMarker(point.clone(), `M2-${alignState.points2.length}`, currentModel.id);
-                    
-                    if (alignState.points2.length === alignState.points1.length) {
-                        updateAlignStatus('כל הנקודות נבחרו! לחץ "יישר מודלים"');
-                        document.getElementById('executeAlignBtn').disabled = false;
-                    } else if (alignState.points2.length >= alignState.minPoints) {
-                        updateAlignStatus('בחרת ' + alignState.points2.length + ' נקודות. לחץ "סיים מודל" או הוסף עד ' + alignState.points1.length);
-                    } else {
-                        updateAlignStatus('בחר עוד ' + (alignState.minPoints - alignState.points2.length) + ' נקודות לפחות');
-                    }
-                }
-                
-                updatePointCounter();
-            }
-        }
-
-        function add3DPointMarker(point, label, modelId) {
-            const model = models.find(m => m.id === modelId);
-            if (!model || !model.group) return;
-
-            const worldToLocal = model.group.matrixWorld.clone().invert();
-            const localPos = point.clone().applyMatrix4(worldToLocal);
-
-            const bbox = new THREE.Box3().setFromObject(model.group);
-            const sizeVec = new THREE.Vector3(); bbox.getSize(sizeVec);
-            const maxDim = Math.max(sizeVec.x, sizeVec.y, sizeVec.z, 1);
-            const radius = Math.max(0.02, maxDim * 0.01);
-
-            // sphere
-            const isModel2 = label.startsWith('M2');
-            const sphereColor = isModel2 ? 0x4444FF : 0xFF4444;
-            const geom = new THREE.SphereGeometry(radius, 8, 8);
-            const mat = new THREE.MeshStandardMaterial({ color: sphereColor, emissive: isModel2 ? 0x000022 : 0x220000 });
-            const sphere = new THREE.Mesh(geom, mat);
-            sphere.position.copy(localPos);
-            sphere.userData = { label, modelId };
-            model.group.add(sphere);
-
-            // number label — extract just the number from label (e.g. "M1-3" → "3")
-            const num = label.split('-')[1] || label;
-            const canvas = document.createElement('canvas');
-            canvas.width = 64; canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, 64, 64);
-            ctx.fillStyle = isModel2 ? '#4488ff' : '#ff4444';
-            ctx.beginPath(); ctx.arc(32, 32, 28, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(num, 32, 32);
-
-            const texture = new THREE.CanvasTexture(canvas);
-            const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
-            const sprite = new THREE.Sprite(spriteMat);
-            const spriteSize = radius * 3;
-            sprite.scale.set(spriteSize, spriteSize, 1);
-            sprite.position.copy(localPos);
-            sprite.position.x += radius * 2;
-            sprite.position.y += radius * 2;
-            sprite.userData = { label, modelId, isSprite: true };
-            model.group.add(sprite);
-
-            alignState.markers.push({ label, mesh: sphere, modelId });
-            alignState.markers.push({ label, mesh: sprite, modelId });
-        }
-
-        function updateAlignStatus(message) {
-            document.getElementById('alignStatus').textContent = message;
-        }
-
-        function updatePointCounter() {
-            const counter = document.getElementById('pointCounter');
-            counter.textContent = `מודל 1: ${alignState.points1.length} נקודות | מודל 2: ${alignState.points2.length} נקודות`;
-        }
-
-        function showAlignButtons() {
-            document.getElementById('finishModelBtn').classList.remove('hidden');
-            document.getElementById('undoPointBtn').classList.remove('hidden');
-        }
-
-        function finishCurrentModel() {
-            if (alignState.selectingModel === alignState.model1) {
-                if (alignState.points1.length < alignState.minPoints) {
-                    alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות');
-                    return;
-                }
-                updateAlignStatus('מודל 1 הושלם עם ' + alignState.points1.length + ' נקודות. בחר מודל שני');
-                alignState.selectingModel = null;
-            } else if (alignState.selectingModel === alignState.model2) {
-                if (alignState.points2.length < alignState.minPoints) {
-                    alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות');
-                    return;
-                }
-                if (alignState.points2.length !== alignState.points1.length) {
-                    const confirmMsg = `בחרת ${alignState.points2.length} נקודות במודל 2 אך יש ${alignState.points1.length} במודל 1.\nהמערכת תשתמש רק ב-${Math.min(alignState.points1.length, alignState.points2.length)} הראשונות.\nלהמשיך?`;
-                    if (!confirm(confirmMsg)) {
-                        return;
-                    }
-                }
-                updateAlignStatus('שני המודלים הושלמו! לחץ "יישר מודלים"');
-                document.getElementById('executeAlignBtn').disabled = false;
-                alignState.selectingModel = null;
-            }
-            
-            updateModelList();
-        }
-
-        function undoLastPoint() {
-            if (alignState.selectingModel === alignState.model1 && alignState.points1.length > 0) {
-                alignState.points1.pop();
-                removeLastMarker('M1');
-                updatePointCounter();
-                updateAlignStatus('נקודה אחרונה נמחקה. סה"כ: ' + alignState.points1.length + ' נקודות');
-            } else if (alignState.selectingModel === alignState.model2 && alignState.points2.length > 0) {
-                alignState.points2.pop();
-                removeLastMarker('M2');
-                updatePointCounter();
-                updateAlignStatus('נקודה אחרונה נמחקה. סה"כ: ' + alignState.points2.length + ' נקודות');
-            }
-            
-            if (alignState.points2.length !== alignState.points1.length) {
-                document.getElementById('executeAlignBtn').disabled = true;
-            }
-        }
-
-        function removeLastMarker(prefix) {
-            for (let i = alignState.markers.length - 1; i >= 0; i--) {
-                if (alignState.markers[i].label.startsWith(prefix)) {
-                    const mesh = alignState.markers[i].mesh;
-                    if (mesh && mesh.parent) mesh.parent.remove(mesh);
-                    alignState.markers.splice(i, 1);
-                    break;
-                }
-            }
-        }
-
-        function executeAlignment() {
-            const numPoints = Math.min(alignState.points1.length, alignState.points2.length);
-            
-            if (numPoints < alignState.minPoints) {
-                alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות בכל מודל');
-                return;
-            }
-
-            const model1 = models.find(m => m.id === alignState.model1);
-            const model2 = models.find(m => m.id === alignState.model2);
-
-            if (!model1 || !model2) {
-                alert('שגיאה: לא נמצאו המודלים');
-                return;
-            }
-
-            // השתמש רק במספר הנקודות המינימלי
-            const targetPoints = alignState.points1.slice(0, numPoints);
-            const sourcePoints = alignState.points2.slice(0, numPoints);
-
-            // המרה למרחב מקומי של מודל 2
-            const worldToLocal2 = model2.group.matrixWorld.clone().invert();
-            const sourcePointsLocal = sourcePoints.map(p => p.clone().applyMatrix4(worldToLocal2));
-
-            // חישוב מרכזי הנקודות
-            const targetCenter = new THREE.Vector3();
-            const sourceCenter = new THREE.Vector3();
-            
-            targetPoints.forEach(p => targetCenter.add(p));
-            sourcePointsLocal.forEach(p => sourceCenter.add(p));
-            
-            targetCenter.divideScalar(numPoints);
-            sourceCenter.divideScalar(numPoints);
-
-            // הזזת הנקודות למרכז
-            const targetCentered = targetPoints.map(p => p.clone().sub(targetCenter));
-            const sourceCentered = sourcePointsLocal.map(p => p.clone().sub(sourceCenter));
-
-            // חישוב מטריצת covariance
-            const H = new THREE.Matrix3();
-            for (let i = 0; i < numPoints; i++) {
-                const s = sourceCentered[i];
-                const t = targetCentered[i];
-                
-                H.elements[0] += s.x * t.x;
-                H.elements[1] += s.x * t.y;
-                H.elements[2] += s.x * t.z;
-                H.elements[3] += s.y * t.x;
-                H.elements[4] += s.y * t.y;
-                H.elements[5] += s.y * t.z;
-                H.elements[6] += s.z * t.x;
-                H.elements[7] += s.z * t.y;
-                H.elements[8] += s.z * t.z;
-            }
-
-            // SVD decomposition (simplified - using Three.js methods)
-            // חישוב quaternion באמצעות שיטה פשוטה יותר
-            const rotation = calculateOptimalRotation(sourceCentered, targetCentered);
-
-            // חישוב סקייל
-            let sourceScale = 0;
-            let targetScale = 0;
-            for (let i = 0; i < numPoints; i++) {
-                sourceScale += sourceCentered[i].lengthSq();
-                targetScale += targetCentered[i].lengthSq();
-            }
-            const scale = Math.sqrt(targetScale / sourceScale);
-
-            // יישום הטרנספורמציות
-            model2.group.scale.set(scale, scale, scale);
-            const euler = new THREE.Euler().setFromQuaternion(rotation);
-            model2.group.rotation.copy(euler);
-            model2.group.updateMatrixWorld(true);
-
-            // חישוב ההזזה
-            const transformedSourceCenter = sourceCenter.clone()
-                .multiplyScalar(scale)
-                .applyQuaternion(rotation);
-            
-            const translation = targetCenter.clone().sub(transformedSourceCenter);
-            model2.group.position.copy(translation);
-            model2.group.updateMatrixWorld(true);
-
-            // חישוב שגיאה
-            let totalError = 0;
-            for (let i = 0; i < numPoints; i++) {
-                const transformed = sourcePointsLocal[i].clone()
-                    .multiplyScalar(scale)
-                    .applyQuaternion(rotation)
-                    .add(translation);
-                totalError += transformed.distanceTo(targetPoints[i]);
-            }
-            const avgError = totalError / numPoints;
-
-            calculateGlobalBoundingBox();
-            applyCuts();
-            cancelAlignment();
-            
-            alert(`המודלים יושרו בהצלחה! ✓\n` +
-                  `נקודות: ${numPoints}\n` +
-                  `שגיאה ממוצעת: ${avgError.toFixed(6)}`);
-        }
-
-        function calculateOptimalRotation(sourcePoints, targetPoints) {
-            // שיטה פשוטה לחישוב rotation באמצעות Kabsch algorithm
-            const n = sourcePoints.length;
-            
-            // חישוב covariance matrix
-            let H = new THREE.Matrix4();
-            for (let i = 0; i < n; i++) {
-                const s = sourcePoints[i];
-                const t = targetPoints[i];
-                
-                // Outer product
-                for (let row = 0; row < 3; row++) {
-                    for (let col = 0; col < 3; col++) {
-                        const sComp = row === 0 ? s.x : (row === 1 ? s.y : s.z);
-                        const tComp = col === 0 ? t.x : (col === 1 ? t.y : t.z);
-                        H.elements[row * 4 + col] += sComp * tComp;
-                    }
-                }
-            }
-
-            // פישוט: שימוש ב-quaternion המחושב מהווקטור הראשון
-            if (n >= 1) {
-                const q = new THREE.Quaternion();
-                q.setFromUnitVectors(sourcePoints[0].clone().normalize(), targetPoints[0].clone().normalize());
-                return q;
-            }
-
-            return new THREE.Quaternion();
-        }
-
-        function cancelAlignment() {
-            // remove any existing 3D markers first
-            if (alignState.markers && alignState.markers.length > 0) {
-                alignState.markers.forEach(m => { if (m.mesh && m.mesh.parent) m.mesh.parent.remove(m.mesh); });
-                alignState.markers = [];
-            }
-
-            // reset align state
-            alignState = {
-                active: false,
-                selectingModel: null,
-                model1: null,
-                model2: null,
-                points1: [],
-                points2: [],
-                markers: [],
-                minPoints: 2
-            };
-
-            document.getElementById('alignSection').classList.add('hidden');
-            document.getElementById('executeAlignBtn').disabled = true;
-            document.getElementById('finishModelBtn').classList.add('hidden');
-            document.getElementById('undoPointBtn').classList.add('hidden');
-            document.getElementById('canvas-container').classList.remove('align-mode');
-            
-            updateModelList();
-        }
-
-        // ===== פונקציות הורדה =====
-
-        function updateDownloadSection() {
-            const section = document.getElementById('downloadSection');
-            const visibleModels = models.filter(m => m.visible);
-            if (visibleModels.length > 0) {
-                section.classList.remove('hidden');
-            } else {
-                section.classList.add('hidden');
-            }
-        }
-
-        function getCombinedGeometry() {
-            const visibleModels = models.filter(m => m.visible);
-            if (visibleModels.length === 0) {
-                console.log('No visible models');
-                return null;
-            }
-
-            // Force update of ALL world matrices from scene root so position/rotation/scale are current
-            if (scene) scene.updateMatrixWorld(true);
-
-            const allPositions = [];
-            const allNormals = [];
-            const allIndices = [];
-            let indexOffset = 0;
-
-            visibleModels.forEach(model => {
-                const worldMatrix = model.group.matrixWorld;
-                const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldMatrix);
-
-                const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
-
-                meshes.forEach(mesh => {
-                    if (!mesh.visible) return;
-                    // דלג על markers של יישור
-                    if (mesh.userData && mesh.userData.label) return;
-                    if (mesh.isSprite) return;
-                    if (!geometry || !geometry.attributes || !geometry.attributes.position) {
-                        console.log('Skipping mesh with no geometry');
-                        return;
-                    }
-
-                    const positions = geometry.attributes.position.array;
-                    if (!positions || positions.length === 0) {
-                        console.log('Skipping mesh with no positions');
-                        return;
-                    }
-
-                    const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
-
-                    // Transform vertices to world space
-                    for (let i = 0; i < positions.length; i += 3) {
-                        const vertex = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
-                        vertex.applyMatrix4(worldMatrix);
-                        allPositions.push(vertex.x, vertex.y, vertex.z);
-
-                        if (normals) {
-                            const normal = new THREE.Vector3(normals[i], normals[i + 1], normals[i + 2]);
-                            normal.applyMatrix3(normalMatrix).normalize();
-                            allNormals.push(normal.x, normal.y, normal.z);
-                        }
-                    }
-
-                    // Handle indices
-                    if (geometry.index) {
-                        const indices = geometry.index.array;
-                        for (let i = 0; i < indices.length; i++) {
-                            allIndices.push(indices[i] + indexOffset);
-                        }
-                    } else {
-                        // Non-indexed geometry
-                        for (let i = 0; i < positions.length / 3; i++) {
-                            allIndices.push(i + indexOffset);
-                        }
-                    }
-
-                    indexOffset += positions.length / 3;
-                });
-            });
-
-            const combinedGeometry = new THREE.BufferGeometry();
-            combinedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
-            if (allNormals.length > 0) {
-                combinedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
-            }
-            if (allIndices.length > 0) {
-                combinedGeometry.setIndex(allIndices);
-            }
-
-            if (allNormals.length === 0) {
-                combinedGeometry.computeVertexNormals();
-            }
-
-            return combinedGeometry;
-        }
-
-        function exportToSTL(geometry) {
-            const positions = geometry.attributes.position.array;
-            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
-            const indices = geometry.index ? geometry.index.array : null;
-
-            let triangles = [];
-
-            if (indices) {
-                for (let i = 0; i < indices.length; i += 3) {
-                    const i0 = indices[i] * 3;
-                    const i1 = indices[i + 1] * 3;
-                    const i2 = indices[i + 2] * 3;
-
-                    const v0 = new THREE.Vector3(positions[i0], positions[i0 + 1], positions[i0 + 2]);
-                    const v1 = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
-                    const v2 = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
-
-                    // Calculate face normal
-                    const edge1 = v1.clone().sub(v0);
-                    const edge2 = v2.clone().sub(v0);
-                    const normal = edge1.cross(edge2).normalize();
-
-                    triangles.push({ vertices: [v0, v1, v2], normal });
-                }
-            } else {
-                for (let i = 0; i < positions.length; i += 9) {
-                    const v0 = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
-                    const v1 = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
-                    const v2 = new THREE.Vector3(positions[i + 6], positions[i + 7], positions[i + 8]);
-
-                    const edge1 = v1.clone().sub(v0);
-                    const edge2 = v2.clone().sub(v0);
-                    const normal = edge1.cross(edge2).normalize();
-
-                    triangles.push({ vertices: [v0, v1, v2], normal });
-                }
-            }
-
-            // Binary STL
-            const numTriangles = triangles.length;
-            const bufferLength = 84 + numTriangles * 50;
-            const buffer = new ArrayBuffer(bufferLength);
-            const view = new DataView(buffer);
-
-            // Header (80 bytes) — כולל magic string לזיהוי קובץ מיושר
-            const header = 'DIGIALIGNED Binary STL exported from DigiTrace';
-            for (let i = 0; i < 80; i++) {
-                view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
-            }
-
-            // Number of triangles
-            view.setUint32(80, numTriangles, true);
-
-            // Triangles
-            let offset = 84;
-            for (const tri of triangles) {
-                // Normal
-                view.setFloat32(offset, tri.normal.x, true); offset += 4;
-                view.setFloat32(offset, tri.normal.y, true); offset += 4;
-                view.setFloat32(offset, tri.normal.z, true); offset += 4;
-
-                // Vertices
-                for (const v of tri.vertices) {
-                    view.setFloat32(offset, v.x, true); offset += 4;
-                    view.setFloat32(offset, v.y, true); offset += 4;
-                    view.setFloat32(offset, v.z, true); offset += 4;
-                }
-
-                // Attribute byte count
-                view.setUint16(offset, 0, true); offset += 2;
-            }
-
-            return new Blob([buffer], { type: 'application/octet-stream' });
-        }
-
-        function exportToOBJ(geometry) {
-            const positions = geometry.attributes.position.array;
-            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
-            const indices = geometry.index ? geometry.index.array : null;
-
-            let obj = '# DIGIALIGNED\n# OBJ exported from DigiTrace\n';
-            obj += '# Vertices: ' + (positions.length / 3) + '\n\n';
-
-            // Vertices
-            for (let i = 0; i < positions.length; i += 3) {
-                obj += `v ${positions[i].toFixed(6)} ${positions[i + 1].toFixed(6)} ${positions[i + 2].toFixed(6)}\n`;
-            }
-
-            obj += '\n';
-
-            // Normals
-            if (normals) {
-                for (let i = 0; i < normals.length; i += 3) {
-                    obj += `vn ${normals[i].toFixed(6)} ${normals[i + 1].toFixed(6)} ${normals[i + 2].toFixed(6)}\n`;
-                }
-                obj += '\n';
-            }
-
-            // Faces
-            if (indices) {
-                for (let i = 0; i < indices.length; i += 3) {
-                    const i0 = indices[i] + 1;
-                    const i1 = indices[i + 1] + 1;
-                    const i2 = indices[i + 2] + 1;
-                    if (normals) {
-                        obj += `f ${i0}//${i0} ${i1}//${i1} ${i2}//${i2}\n`;
-                    } else {
-                        obj += `f ${i0} ${i1} ${i2}\n`;
-                    }
-                }
-            } else {
-                for (let i = 0; i < positions.length / 3; i += 3) {
-                    const i0 = i + 1;
-                    const i1 = i + 2;
-                    const i2 = i + 3;
-                    if (normals) {
-                        obj += `f ${i0}//${i0} ${i1}//${i1} ${i2}//${i2}\n`;
-                    } else {
-                        obj += `f ${i0} ${i1} ${i2}\n`;
-                    }
-                }
-            }
-
-            return new Blob([obj], { type: 'text/plain' });
-        }
-
-        function exportToGLTF(geometry, binary = false) {
-            console.log('exportToGLTF called, binary:', binary);
-
-            const positions = geometry.attributes.position.array;
-            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
-            const indices = geometry.index ? geometry.index.array : null;
-
-            console.log('Positions length:', positions.length);
-            console.log('Normals:', normals ? normals.length : 'none');
-            console.log('Indices:', indices ? indices.length : 'none');
-
-            // Create buffer data - copy to new typed arrays
-            const positionBuffer = new Float32Array(positions.length);
-            for (let i = 0; i < positions.length; i++) {
-                positionBuffer[i] = positions[i];
-            }
-            console.log('Position buffer created, byteLength:', positionBuffer.byteLength);
-
-            let normalBuffer = null;
-            if (normals) {
-                normalBuffer = new Float32Array(normals.length);
-                for (let i = 0; i < normals.length; i++) {
-                    normalBuffer[i] = normals[i];
-                }
-                console.log('Normal buffer created, byteLength:', normalBuffer.byteLength);
-            }
-
-            // Use Uint32Array for indices if needed
-            let indexBuffer = null;
-            let indexComponentType = 5123; // UNSIGNED_SHORT
-            if (indices && indices.length > 0) {
-                // Find max index without spread operator (which fails on large arrays)
-                let maxIndex = 0;
-                for (let i = 0; i < indices.length; i++) {
-                    if (indices[i] > maxIndex) maxIndex = indices[i];
-                }
-                console.log('Max index:', maxIndex);
-
-                if (maxIndex > 65535) {
-                    indexBuffer = new Uint32Array(indices.length);
-                    indexComponentType = 5125; // UNSIGNED_INT
-                } else {
-                    indexBuffer = new Uint16Array(indices.length);
-                }
-                for (let i = 0; i < indices.length; i++) {
-                    indexBuffer[i] = indices[i];
-                }
-                console.log('Index buffer created, byteLength:', indexBuffer.byteLength);
-            }
-
-            // Calculate bounding box
-            let minPos = [Infinity, Infinity, Infinity];
-            let maxPos = [-Infinity, -Infinity, -Infinity];
-            for (let i = 0; i < positions.length; i += 3) {
-                minPos[0] = Math.min(minPos[0], positions[i]);
-                minPos[1] = Math.min(minPos[1], positions[i + 1]);
-                minPos[2] = Math.min(minPos[2], positions[i + 2]);
-                maxPos[0] = Math.max(maxPos[0], positions[i]);
-                maxPos[1] = Math.max(maxPos[1], positions[i + 1]);
-                maxPos[2] = Math.max(maxPos[2], positions[i + 2]);
-            }
-
-            if (binary) {
-                // GLB format
-                return createGLB(positionBuffer, normalBuffer, indexBuffer, indexComponentType, minPos, maxPos);
-            } else {
-                // GLTF with embedded base64
-                return createGLTF(positionBuffer, normalBuffer, indexBuffer, indexComponentType, minPos, maxPos);
-            }
-        }
-
-        function createGLB(positionBuffer, normalBuffer, indexBuffer, indexComponentType, minPos, maxPos) {
-            console.log('createGLB called');
-
-            // Calculate buffer sizes with padding
-            const positionByteLength = positionBuffer.byteLength;
-            const normalByteLength = normalBuffer ? normalBuffer.byteLength : 0;
-            const indexByteLength = indexBuffer ? indexBuffer.byteLength : 0;
-
-            console.log('Byte lengths - position:', positionByteLength, 'normal:', normalByteLength, 'index:', indexByteLength);
-
-            // Pad to 4-byte boundaries
-            const padTo4 = (n) => Math.ceil(n / 4) * 4;
-
-            const paddedPositionLength = padTo4(positionByteLength);
-            const paddedNormalLength = padTo4(normalByteLength);
-            const paddedIndexLength = padTo4(indexByteLength);
-
-            const totalBufferLength = paddedPositionLength + paddedNormalLength + paddedIndexLength;
-
-            // Build accessors and buffer views
-            const bufferViews = [];
-            const accessors = [];
-            let byteOffset = 0;
-
-            // Position buffer view and accessor
-            bufferViews.push({
-                buffer: 0,
-                byteOffset: byteOffset,
-                byteLength: positionByteLength,
-                target: 34962 // ARRAY_BUFFER
-            });
-            accessors.push({
-                bufferView: 0,
-                byteOffset: 0,
-                componentType: 5126, // FLOAT
-                count: positionBuffer.length / 3,
-                type: 'VEC3',
-                min: minPos,
-                max: maxPos
-            });
-            byteOffset += paddedPositionLength;
-
-            let normalAccessorIndex = -1;
-            if (normalBuffer) {
-                bufferViews.push({
-                    buffer: 0,
-                    byteOffset: byteOffset,
-                    byteLength: normalByteLength,
-                    target: 34962
-                });
-                normalAccessorIndex = accessors.length;
-                accessors.push({
-                    bufferView: bufferViews.length - 1,
-                    byteOffset: 0,
-                    componentType: 5126,
-                    count: normalBuffer.length / 3,
-                    type: 'VEC3'
-                });
-                byteOffset += paddedNormalLength;
-            }
-
-            let indexAccessorIndex = -1;
-            if (indexBuffer) {
-                bufferViews.push({
-                    buffer: 0,
-                    byteOffset: byteOffset,
-                    byteLength: indexByteLength,
-                    target: 34963 // ELEMENT_ARRAY_BUFFER
-                });
-                indexAccessorIndex = accessors.length;
-                accessors.push({
-                    bufferView: bufferViews.length - 1,
-                    byteOffset: 0,
-                    componentType: indexComponentType,
-                    count: indexBuffer.length,
-                    type: 'SCALAR'
-                });
-            }
-
-            // Build primitive
-            const primitive = {
-                attributes: { POSITION: 0 },
-                mode: 4 // TRIANGLES
-            };
-            if (normalAccessorIndex >= 0) {
-                primitive.attributes.NORMAL = normalAccessorIndex;
-            }
-            if (indexAccessorIndex >= 0) {
-                primitive.indices = indexAccessorIndex;
-            }
-
-            // Build GLTF JSON
-            const gltf = {
-                asset: { version: '2.0', generator: 'Archaeological Site Viewer' },
-                scene: 0,
-                scenes: [{ nodes: [0] }],
-                nodes: [{ mesh: 0 }],
-                meshes: [{ primitives: [primitive] }],
-                accessors: accessors,
-                bufferViews: bufferViews,
-                buffers: [{ byteLength: totalBufferLength }]
-            };
-
-            const jsonString = JSON.stringify(gltf);
-            console.log('GLTF JSON:', jsonString.substring(0, 200) + '...');
-            const jsonBuffer = new TextEncoder().encode(jsonString);
-            const paddedJsonLength = padTo4(jsonBuffer.byteLength);
-
-            console.log('JSON buffer length:', jsonBuffer.byteLength, 'padded:', paddedJsonLength);
-
-            // Build GLB
-            const glbLength = 12 + 8 + paddedJsonLength + 8 + totalBufferLength;
-            console.log('Total GLB length:', glbLength);
-            const glb = new ArrayBuffer(glbLength);
-            const glbView = new DataView(glb);
-            const glbBytes = new Uint8Array(glb);
-
-            // GLB header
-            glbView.setUint32(0, 0x46546C67, true); // magic "glTF"
-            glbView.setUint32(4, 2, true); // version
-            glbView.setUint32(8, glbLength, true); // total length
-
-            // JSON chunk
-            glbView.setUint32(12, paddedJsonLength, true); // chunk length
-            glbView.setUint32(16, 0x4E4F534A, true); // chunk type "JSON"
-            glbBytes.set(jsonBuffer, 20);
-            // Pad with spaces
-            for (let i = jsonBuffer.byteLength; i < paddedJsonLength; i++) {
-                glbBytes[20 + i] = 0x20;
-            }
-
-            // Binary chunk
-            const binChunkStart = 20 + paddedJsonLength;
-            glbView.setUint32(binChunkStart, totalBufferLength, true);
-            glbView.setUint32(binChunkStart + 4, 0x004E4942, true); // chunk type "BIN"
-
-            // Copy buffer data
-            let binOffset = binChunkStart + 8;
-            glbBytes.set(new Uint8Array(positionBuffer.buffer, positionBuffer.byteOffset, positionBuffer.byteLength), binOffset);
-            binOffset += paddedPositionLength;
-
-            if (normalBuffer) {
-                glbBytes.set(new Uint8Array(normalBuffer.buffer, normalBuffer.byteOffset, normalBuffer.byteLength), binOffset);
-                binOffset += paddedNormalLength;
-            }
-
-            if (indexBuffer) {
-                glbBytes.set(new Uint8Array(indexBuffer.buffer, indexBuffer.byteOffset, indexBuffer.byteLength), binOffset);
-            }
-
-            console.log('GLB creation complete, creating blob...');
-            const blob = new Blob([glb], { type: 'model/gltf-binary' });
-            console.log('GLB blob created, size:', blob.size);
-            return blob;
-        }
-
-        function createGLTF(positionBuffer, normalBuffer, indexBuffer, indexComponentType, minPos, maxPos) {
-            console.log('createGLTF (non-binary) called');
-            // Combine all buffers
-            const totalLength = positionBuffer.byteLength +
-                               (normalBuffer ? normalBuffer.byteLength : 0) +
-                               (indexBuffer ? indexBuffer.byteLength : 0);
-
-            const combinedBuffer = new Uint8Array(totalLength);
-            let offset = 0;
-
-            combinedBuffer.set(new Uint8Array(positionBuffer.buffer, positionBuffer.byteOffset, positionBuffer.byteLength), offset);
-            const positionOffset = offset;
-            offset += positionBuffer.byteLength;
-
-            let normalOffset = 0;
-            if (normalBuffer) {
-                combinedBuffer.set(new Uint8Array(normalBuffer.buffer, normalBuffer.byteOffset, normalBuffer.byteLength), offset);
-                normalOffset = offset;
-                offset += normalBuffer.byteLength;
-            }
-
-            let indexOffset = 0;
-            if (indexBuffer) {
-                combinedBuffer.set(new Uint8Array(indexBuffer.buffer, indexBuffer.byteOffset, indexBuffer.byteLength), offset);
-                indexOffset = offset;
-            }
-
-            // Convert to base64 (handle large arrays)
-            console.log('Converting to base64, buffer length:', combinedBuffer.length);
-            let binary = '';
-            const chunkSize = 8192;
-            for (let i = 0; i < combinedBuffer.length; i += chunkSize) {
-                const chunk = combinedBuffer.subarray(i, Math.min(i + chunkSize, combinedBuffer.length));
-                binary += String.fromCharCode.apply(null, chunk);
-            }
-            console.log('Binary string length:', binary.length);
-            const base64 = btoa(binary);
-            console.log('Base64 length:', base64.length);
-            const dataUri = 'data:application/octet-stream;base64,' + base64;
-
-            // Build buffer views and accessors
-            const bufferViews = [];
-            const accessors = [];
-
-            bufferViews.push({
-                buffer: 0,
-                byteOffset: positionOffset,
-                byteLength: positionBuffer.byteLength,
-                target: 34962
-            });
-            accessors.push({
-                bufferView: 0,
-                byteOffset: 0,
-                componentType: 5126,
-                count: positionBuffer.length / 3,
-                type: 'VEC3',
-                min: minPos,
-                max: maxPos
-            });
-
-            let normalAccessorIndex = -1;
-            if (normalBuffer) {
-                bufferViews.push({
-                    buffer: 0,
-                    byteOffset: normalOffset,
-                    byteLength: normalBuffer.byteLength,
-                    target: 34962
-                });
-                normalAccessorIndex = accessors.length;
-                accessors.push({
-                    bufferView: bufferViews.length - 1,
-                    byteOffset: 0,
-                    componentType: 5126,
-                    count: normalBuffer.length / 3,
-                    type: 'VEC3'
-                });
-            }
-
-            let indexAccessorIndex = -1;
-            if (indexBuffer) {
-                bufferViews.push({
-                    buffer: 0,
-                    byteOffset: indexOffset,
-                    byteLength: indexBuffer.byteLength,
-                    target: 34963
-                });
-                indexAccessorIndex = accessors.length;
-                accessors.push({
-                    bufferView: bufferViews.length - 1,
-                    byteOffset: 0,
-                    componentType: indexComponentType,
-                    count: indexBuffer.length,
-                    type: 'SCALAR'
-                });
-            }
-
-            const primitive = {
-                attributes: { POSITION: 0 },
-                mode: 4
-            };
-            if (normalAccessorIndex >= 0) {
-                primitive.attributes.NORMAL = normalAccessorIndex;
-            }
-            if (indexAccessorIndex >= 0) {
-                primitive.indices = indexAccessorIndex;
-            }
-
-            const gltf = {
-                asset: { version: '2.0', generator: 'Archaeological Site Viewer' },
-                scene: 0,
-                scenes: [{ nodes: [0] }],
-                nodes: [{ mesh: 0 }],
-                meshes: [{ primitives: [primitive] }],
-                accessors: accessors,
-                bufferViews: bufferViews,
-                buffers: [{ byteLength: totalLength, uri: dataUri }]
-            };
-
-            console.log('GLTF JSON created');
-            const jsonStr = JSON.stringify(gltf, null, 2);
-            console.log('GLTF JSON string length:', jsonStr.length);
-            const blob = new Blob([jsonStr], { type: 'model/gltf+json' });
-            console.log('GLTF blob created, size:', blob.size);
-            return blob;
-        }
-
-        function downloadCombinedModel() {
-            try {
-                console.log('Starting download...');
-                const geometry = getCombinedGeometry();
-                if (!geometry) {
-                    alert('אין מודלים גלויים להורדה');
-                    return;
-                }
-
-                const posCount = geometry.attributes.position.array.length / 3;
-                console.log('Combined geometry vertices:', posCount);
-
-                if (posCount === 0) {
-                    alert('המודל ריק - אין נתונים להורדה');
-                    return;
-                }
-
-                const format = document.getElementById('exportFormat').value;
-                console.log('Export format:', format);
-                let blob, filename;
-
-                switch (format) {
-                    case 'stl':
-                        blob = exportToSTL(geometry);
-                        filename = 'combined_model.stl';
-                        break;
-                    case 'obj':
-                        blob = exportToOBJ(geometry);
-                        filename = 'combined_model.obj';
-                        break;
-                    case 'glb':
-                        try {
-                            console.log('Starting GLB export...');
-                            blob = exportToGLTF(geometry, true);
-                            console.log('GLB export successful, size:', blob.size);
-                        } catch (e) {
-                            console.error('GLB export error:', e);
-                            throw e;
-                        }
-                        filename = 'combined_model.glb';
-                        break;
-                    case 'gltf':
-                        try {
-                            console.log('Starting GLTF export...');
-                            blob = exportToGLTF(geometry, false);
-                            console.log('GLTF export successful, size:', blob.size);
-                        } catch (e) {
-                            console.error('GLTF export error:', e);
-                            throw e;
-                        }
-                        filename = 'combined_model.gltf';
-                        break;
-                }
-
-                console.log('Blob created, size:', blob.size);
-
-                // Download
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-
-                // Cleanup after a delay
-                setTimeout(() => {
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                }, 100);
-
-                console.log('Download triggered:', filename);
-            } catch (error) {
-                console.error('Download error:', error);
-                alert('שגיאה בהורדה: ' + error.message);
-            }
-        }
-
-        // Update download section visibility when models change
-        const originalUpdateModelList = updateModelList;
-        updateModelList = function() {
-            originalUpdateModelList();
-            updateDownloadSection();
-        };
-
-        function triggerDownload(blob, filename) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-        }
-
-        function getSingleModelGeometry(model) {
-            if (scene) scene.updateMatrixWorld(true);
-            const allPositions = [];
-            const allNormals = [];
-            const allIndices = [];
-            let indexOffset = 0;
-            const worldMatrix = model.group.matrixWorld;
-            const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldMatrix);
-            const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
-            meshes.forEach(mesh => {
-                if (!mesh.visible) return;
-                // דלג על markers של יישור (כדורים וספרייטים)
-                if (mesh.userData && mesh.userData.label) return;
-                if (mesh.isSprite) return;
-                const geometry = mesh.geometry;
-                if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
-                const positions = geometry.attributes.position.array;
-                if (!positions || positions.length === 0) return;
-                const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
-                for (let i = 0; i < positions.length; i += 3) {
-                    const vertex = new THREE.Vector3(positions[i], positions[i+1], positions[i+2]);
-                    vertex.applyMatrix4(worldMatrix);
-                    allPositions.push(vertex.x, vertex.y, vertex.z);
-                    if (normals) {
-                        const normal = new THREE.Vector3(normals[i], normals[i+1], normals[i+2]);
-                        normal.applyMatrix3(normalMatrix).normalize();
-                        allNormals.push(normal.x, normal.y, normal.z);
-                    }
-                }
-                if (geometry.index) {
-                    const indices = geometry.index.array;
-                    for (let i = 0; i < indices.length; i++) allIndices.push(indices[i] + indexOffset);
-                } else {
-                    for (let i = 0; i < positions.length / 3; i++) allIndices.push(i + indexOffset);
-                }
-                indexOffset += positions.length / 3;
-            });
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
-            if (allNormals.length > 0) geo.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
-            if (allIndices.length > 0) geo.setIndex(allIndices);
-            return geo;
-        }
-
-        async function downloadAllSeparate() {
-            const visibleModels = models.filter(m => m.visible);
-            if (visibleModels.length === 0) { alert('אין מודלים גלויים להורדה'); return; }
-            const format = document.getElementById('exportFormat').value;
-            for (const model of visibleModels) {
-                const geo = getSingleModelGeometry(model);
-                const baseName = model.name.replace(/\.[^.]+$/, '');
-                let blob, ext;
-                switch (format) {
-                    case 'stl': blob = exportToSTL(geo); ext = 'stl'; break;
-                    case 'obj': blob = exportToOBJ(geo); ext = 'obj'; break;
-                    case 'glb': blob = exportToGLTF(geo, true); ext = 'glb'; break;
-                    case 'gltf': blob = exportToGLTF(geo, false); ext = 'gltf'; break;
-                }
-                triggerDownload(blob, `aligned_${baseName}.${ext}`);
-                await new Promise(r => setTimeout(r, 300));
-            }
-        }
-        // ===== שמירה מלאה - IndexedDB + localStorage + cookies =====
-        const STORAGE_KEY = 'digitrace_session';
-        const IDB_NAME = 'DigiTraceDB';
-        const IDB_STORE = 'models';
-        let _idb = null;
-
-        function openIDB() {
-            return new Promise((resolve, reject) => {
-                if (_idb) return resolve(_idb);
-                const req = indexedDB.open(IDB_NAME, 1);
-                req.onupgradeneeded = e => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath: 'name' });
-                };
-                req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
-                req.onerror = () => reject(req.error);
-            });
-        }
-
-        async function idbPut(record) {
-            const db = await openIDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(IDB_STORE, 'readwrite');
-                tx.objectStore(IDB_STORE).put(record);
-                tx.oncomplete = resolve;
-                tx.onerror = () => reject(tx.error);
-            });
-        }
-
-        async function idbGetAll() {
-            const db = await openIDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(IDB_STORE, 'readonly');
-                const req = tx.objectStore(IDB_STORE).getAll();
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => reject(req.error);
-            });
-        }
-
-        async function idbClear() {
-            const db = await openIDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(IDB_STORE, 'readwrite');
-                tx.objectStore(IDB_STORE).clear();
-                tx.oncomplete = resolve;
-                tx.onerror = () => reject(tx.error);
-            });
-        }
-
-        async function idbDelete(name) {
-            const db = await openIDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(IDB_STORE, 'readwrite');
-                tx.objectStore(IDB_STORE).delete(name);
-                tx.oncomplete = resolve;
-                tx.onerror = () => reject(tx.error);
-            });
-        }
-
-        // שמור geometry כ-ArrayBuffer ב-IndexedDB
-        function geometryToArrayBuffer(geometry) {
-            const positions = geometry.attributes.position.array;
-            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
-            const indices = geometry.index ? geometry.index.array : null;
-
-            const posLen = positions.length;
-            const normLen = normals ? normals.length : 0;
-            const idxLen = indices ? indices.length : 0;
-
-            // header: 3 ints (posLen, normLen, idxLen)
-            const header = new Int32Array([posLen, normLen, idxLen]);
-            const posBytes = new Float32Array(positions);
-            const normBytes = normals ? new Float32Array(normals) : new Float32Array(0);
-            const idxBytes = indices ? (idxLen > 65535 ? new Uint32Array(indices) : new Uint16Array(indices)) : new Uint16Array(0);
-            const idxIsU32 = indices && idxLen > 65535;
-            const flagArr = new Uint8Array([idxIsU32 ? 1 : 0]);
-
-            const totalBytes = 12 + 1 + posBytes.byteLength + normBytes.byteLength + idxBytes.byteLength;
-            const buf = new ArrayBuffer(totalBytes);
-            const view = new Uint8Array(buf);
-            let offset = 0;
-            view.set(new Uint8Array(header.buffer), offset); offset += 12;
-            view.set(flagArr, offset); offset += 1;
-            view.set(new Uint8Array(posBytes.buffer), offset); offset += posBytes.byteLength;
-            if (normBytes.byteLength) { view.set(new Uint8Array(normBytes.buffer), offset); offset += normBytes.byteLength; }
-            if (idxBytes.byteLength)  { view.set(new Uint8Array(idxBytes.buffer),  offset); }
-            return buf;
-        }
-
-        function arrayBufferToGeometry(buf) {
-            const headerView = new Int32Array(buf, 0, 3);
-            const [posLen, normLen, idxLen] = headerView;
-            const flag = new Uint8Array(buf, 12, 1)[0];
-            let offset = 13;
-
-            const positions = new Float32Array(buf, offset, posLen); offset += posLen * 4;
-            const normals = normLen > 0 ? new Float32Array(buf, offset, normLen) : null; if (normLen) offset += normLen * 4;
-            let indices = null;
-            if (idxLen > 0) {
-                indices = flag ? new Uint32Array(buf, offset, idxLen) : new Uint16Array(buf, offset, idxLen);
-            }
-
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3));
-            if (normals) geo.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(normals), 3));
-            if (indices) geo.setIndex(new THREE.BufferAttribute(flag ? new Uint32Array(indices) : new Uint16Array(indices), 1));
-            return geo;
-        }
-
-        // שמור מודל ב-IndexedDB
-        async function saveModelToIDB(model) {
-            try {
-                // שמור את ה-originalGeometries — לפני כל שינוי חיתוך
-                const geoBuffers = model.originalGeometries
-                    .filter(g => g && g.attributes && g.attributes.position)
-                    .map(g => geometryToArrayBuffer(g));
-                await idbPut({
-                    name: model.name,
-                    color: model.color,
-                    unit: model.unit || 'm',
-                    geoBuffers
-                });
-            } catch(e) {
-                console.warn('saveModelToIDB error:', e);
-            }
-        }
-
-        async function saveSession() {
-            try {
-                const session = {
-                    camera: { horizontal: cameraRotation.horizontal, vertical: cameraRotation.vertical, distance: cameraDistance },
-                    sliders: {
-                        cutY: document.getElementById('cutY').value,
-                        cutX: document.getElementById('cutX').value,
-                        cutZ: document.getElementById('cutZ').value
-                    },
-                    exportFormat: document.getElementById('exportFormat').value,
-                    models: models.map(m => ({
-                        name: m.name,
-                        date: m.date,
-                        unit: m.unit || 'm',
-                        color: m.color,
-                        visible: m.visible,
-                        position: { x: m.group.position.x, y: m.group.position.y, z: m.group.position.z },
-                        rotation: { x: m.group.rotation.x, y: m.group.rotation.y, z: m.group.rotation.z },
-                        scale:    { x: m.group.scale.x,    y: m.group.scale.y,    z: m.group.scale.z }
-                    }))
-                };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-
-                // cookies — מידע קל בלבד
-                const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
-                const mini = { cutY: session.sliders.cutY, cutX: session.sliders.cutX, cutZ: session.sliders.cutZ,
-                               camH: cameraRotation.horizontal.toFixed(1), camV: cameraRotation.vertical.toFixed(1),
-                               camD: cameraDistance.toFixed(2), fmt: session.exportFormat };
-                document.cookie = `digitrace=${encodeURIComponent(JSON.stringify(mini))};expires=${expires};path=/;SameSite=Lax`;
-            } catch(e) {
-                console.warn('saveSession error:', e);
-            }
-        }
-
-        async function restoreFullSession() {
-            try {
-                // שחזר הגדרות מ-localStorage
-                const raw = localStorage.getItem(STORAGE_KEY);
-                if (!raw) return false;
-                const session = JSON.parse(raw);
-
-                // מצלמה
-                if (session.camera) {
-                    cameraRotation.horizontal = session.camera.horizontal ?? 45;
-                    cameraRotation.vertical   = session.camera.vertical   ?? 30;
-                    cameraDistance            = session.camera.distance   ?? 8;
-                }
-
-                // סליידרים
-                if (session.sliders) {
-                    ['cutY','cutX','cutZ'].forEach(id => {
-                        document.getElementById(id).value = session.sliders[id];
-                    });
-                    document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${session.sliders.cutY}%`;
-                    document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${session.sliders.cutX}%`;
-                    document.getElementById('cutZValue').textContent = `חיתוך עומק: ${session.sliders.cutZ}%`;
-                }
-
-                if (session.exportFormat) document.getElementById('exportFormat').value = session.exportFormat;
-
-                if (!session.models || session.models.length === 0) return true;
-
-                // שחזר geometry מ-IndexedDB
-                const idbRecords = await idbGetAll();
-                const idbMap = {};
-                idbRecords.forEach(r => idbMap[r.name] = r);
-
-                if (!scene) initThreeJS();
-
-                const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
-                const loadingMsg = document.getElementById('loadingMessage');
-                loadingMsg.classList.remove('hidden');
-
-                for (const meta of session.models) {
-                    const idbRec = idbMap[meta.name];
-                    if (!idbRec) continue;
-
-                    loadingMsg.textContent = `משחזר ${meta.name}...`;
-
-                    try {
-                        const mainGroup = new THREE.Group();
-                        const color = meta.color || colors[models.length % colors.length];
-
-                        idbRec.geoBuffers.forEach(buf => {
-                            const geometry = arrayBufferToGeometry(buf);
-                            const material = new THREE.MeshStandardMaterial({
-                                color, transparent: true, opacity: 0.85,
-                                side: THREE.DoubleSide, flatShading: false
-                            });
-                            mainGroup.add(new THREE.Mesh(geometry, material));
-                        });
-
-                        if (mainGroup.children.length === 0) continue;
-
-                        // החל transform שמור
-                        mainGroup.position.set(meta.position.x, meta.position.y, meta.position.z);
-                        mainGroup.rotation.set(meta.rotation.x, meta.rotation.y, meta.rotation.z);
-                        mainGroup.scale.set(meta.scale.x, meta.scale.y, meta.scale.z);
-                        mainGroup.visible = meta.visible;
-
-                        scene.add(mainGroup);
-
-                        const modelData = {
-                            id: modelCounter++,
-                            name: meta.name,
-                            date: meta.date,
-                            group: mainGroup,
-                            meshes: mainGroup.children,
-                            visible: meta.visible,
-                            originalGeometries: mainGroup.children.map(m => m.geometry.clone()),
-                            color,
-                            unit: meta.unit || 'm'
-                        };
-
-                        models.push(modelData);
-                    } catch(e) {
-                        console.warn('restore model error:', meta.name, e);
-                    }
-                }
-
-                loadingMsg.classList.add('hidden');
-                updateModelList();
-                calculateGlobalBoundingBox();
-                updateCameraPosition();
-                applyCuts();
-                adjustCameraToModel();
-                return true;
-            } catch(e) {
-                console.warn('restoreFullSession error:', e);
-                return false;
-            }
-        }
-
-        // שחזור transform של מודל אחרי טעינה ידנית (לפי שם)
-        function restoreModelTransform(modelData) {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) return;
-            try {
-                const session = JSON.parse(raw);
-                const meta = session.models && session.models.find(m => m.name === modelData.name);
-                if (!meta) return;
-                modelData.group.position.set(meta.position.x, meta.position.y, meta.position.z);
-                modelData.group.rotation.set(meta.rotation.x, meta.rotation.y, meta.rotation.z);
-                modelData.group.scale.set(meta.scale.x, meta.scale.y, meta.scale.z);
-                modelData.visible = meta.visible;
-                modelData.group.visible = meta.visible;
-                if (meta.unit) modelData.unit = meta.unit;
-            } catch(e) {}
-        }
-
-        // שמור כל שנייה + על כל פעולה
-        setInterval(saveSession, 1000);
-        window.addEventListener('beforeunload', saveSession);
-
-        // שחזר בטעינה
-        window.addEventListener('load', async () => {
-            await restoreFullSession();
-        });
-
-    </script>
-    <script src="translations.js"></script>
-    <script>
-    (function(){
-      const langSelect = document.getElementById('langSelect');
-      const translations = window.TRANSLATIONS || {};
-      const languages = Object.keys(translations);
-      function populateLangs(){
-        languages.forEach(code => {
-          const opt = document.createElement('option');
-          opt.value = code;
-          opt.text = translations[code].nativeName || code;
-          langSelect.appendChild(opt);
-        });
-      }
-      function applyTranslations(lang){
-        const dict = translations[lang] || translations['en'] || {};
-        document.querySelectorAll('[data-i18n]').forEach(el => {
-          const key = el.getAttribute('data-i18n');
-          if(!key) return;
-          const text = dict[key];
-          if(text !== undefined){
-            if(el.tagName.toLowerCase() === 'input' || el.tagName.toLowerCase() === 'textarea'){
-              el.placeholder = text;
-            } else {
-              el.innerHTML = text;
-            }
-          }
-        });
-        // Set document language and direction based on selection
-        document.documentElement.lang = lang;
-        if (lang === 'he' || lang === 'ar') {
-          document.documentElement.dir = 'rtl';
-          document.body.style.textAlign = 'right';
-          document.body.classList.add('rtl');
-        } else {
-          document.documentElement.dir = 'ltr';
-          document.body.style.textAlign = 'left';
-          document.body.classList.remove('rtl');
-        }
-      }
-      langSelect.addEventListener('change', e => { const v = e.target.value; localStorage.setItem('siteLang', v); applyTranslations(v); });
-      populateLangs();
-      const browserLang = (navigator.language || navigator.userLanguage || 'he').split('-')[0];
-      const saved = localStorage.getItem('siteLang') || browserLang;
-      langSelect.value = languages.includes(saved) ? saved : (languages.includes(browserLang) ? browserLang : (languages.includes('he') ? 'he' : (languages.includes('en') ? 'en' : languages[0])));
-      applyTranslations(langSelect.value);
-
-      // Re-apply translations every 5 seconds to handle dynamic content that may be added later
-      const i18nRefresher = setInterval(() => {
-        try {
-          const cur = langSelect.value || saved;
-          applyTranslations(cur);
-        } catch (e) {
-          console.error('i18n refresher error:', e);
-        }
-      }, 5000);
-
-      // Clear interval on unload to avoid leaks
-      window.addEventListener('beforeunload', () => clearInterval(i18nRefresher));
-    })();
-    </script>
-</body>
-</html>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 100%;
+    height: calc(100vh - 40px);
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+    color: white;
+    padding: 20px 30px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.header h1 {
+    font-size: 2em;
+    margin-bottom: 5px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.header p {
+    font-size: 0.95em;
+    opacity: 0.9;
+}
+
+.lang-switcher {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.96);
+    padding: 4px 8px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    z-index: 1002;
+}
+
+.lang-switcher label {
+    font-size: 1.05em;
+    margin: 0;
+}
+
+#langSelect {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.08);
+    font-size: 0.95em;
+    background: transparent;
+    cursor: pointer;
+}
+
+body.rtl .lang-switcher {
+    right: auto;
+    left: 20px;
+}
+
+.content {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.sidebar {
+    background: #f8f9fa;
+    padding: 20px;
+    border-left: 3px solid #8B4513;
+    overflow-y: auto;
+}
+
+.upload-section {
+    margin-bottom: 20px;
+}
+
+.upload-section h3 {
+    color: #8B4513;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+
+.upload-box {
+    border: 3px dashed #8B4513;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 10px;
+}
+
+.upload-box:hover {
+    background: #fff8f0;
+    border-color: #D2691E;
+    transform: translateY(-2px);
+}
+
+.upload-box.loading {
+    background: #fffacd;
+    border-color: #ffd700;
+}
+
+.upload-icon {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.file-input {
+    display: none;
+}
+
+.model-list {
+    margin-top: 15px;
+}
+
+.model-item {
+    background: white;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border-right: 4px solid #8B4513;
+    transition: all 0.3s;
+}
+
+.model-item:hover {
+    transform: translateX(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.model-name {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.color-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 2px solid #666;
+    flex-shrink: 0;
+}
+
+.color-name {
+    font-size: 0.75em;
+    color: #666;
+    font-weight: normal;
+}
+
+.model-date {
+    font-size: 0.75em;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.model-controls {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.visibility-toggle {
+    cursor: pointer;
+    padding: 4px 8px;
+    background: #e0e0e0;
+    border-radius: 5px;
+    font-size: 0.8em;
+    transition: all 0.3s;
+}
+
+.visibility-toggle.visible {
+    background: #4CAF50;
+    color: white;
+}
+
+.delete-btn {
+    cursor: pointer;
+    padding: 4px 8px;
+    background: #f44336;
+    color: white;
+    border-radius: 5px;
+    font-size: 0.8em;
+    transition: all 0.3s;
+}
+
+.delete-btn:hover {
+    background: #d32f2f;
+}
+
+.controls {
+    padding: 15px;
+    background: #fff8f0;
+    border-bottom: 2px solid #8B4513;
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.controls-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.fullscreen-btn {
+    background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: all 0.3s;
+    z-index: 10;
+    flex-shrink: 0;
+}
+
+.fullscreen-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(139, 69, 19, 0.3);
+}
+
+.help-btn {
+    position: absolute;
+    top: 15px;
+    left: 150px;
+    background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: all 0.3s;
+    z-index: 10;
+}
+
+.help-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(30, 60, 114, 0.3);
+}
+
+.fullscreen-controls {
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 248, 240, 0.95);
+    padding: 12px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 1000;
+    width: 220px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    backdrop-filter: blur(10px);
+}
+
+.fullscreen-controls.active {
+    display: block;
+}
+
+/* שפה — מוסתרת במסך מלא */
+.fullscreen-mode .lang-switcher {
+    display: none;
+}
+
+.close-fullscreen {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    transition: all 0.3s;
+    z-index: 1001;
+    display: none;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+
+.close-fullscreen.active {
+    display: block;
+}
+
+.close-fullscreen:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(244, 67, 54, 0.4);
+}
+
+.fullscreen-mode #canvas-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    z-index: 999;
+}
+
+.control-group {
+    margin-bottom: 12px;
+}
+
+.control-group label {
+    display: block;
+    color: #8B4513;
+    font-weight: bold;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+.slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 5px;
+    background: #ddd;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #8B4513;
+    cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #8B4513;
+    cursor: pointer;
+}
+
+.viewer {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e8e8e8;
+    overflow: hidden;
+}
+
+#canvas-container {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, #87CEEB 0%, #E0E0E0 100%);
+    border-radius: 15px;
+    box-shadow: inset 0 4px 20px rgba(0,0,0,0.2);
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+}
+
+#canvas-container.align-mode {
+    cursor: crosshair;
+}
+
+#canvas-container.align-mode:hover {
+    cursor: crosshair;
+}
+
+.instruction {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #666;
+    font-size: 1.1em;
+}
+
+.value-display {
+    display: inline-block;
+    background: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    margin-right: 8px;
+    font-weight: bold;
+    color: #8B4513;
+    font-size: 0.85em;
+}
+
+.loading-message {
+    background: #fffacd;
+    padding: 8px;
+    border-radius: 5px;
+    margin-top: 8px;
+    text-align: center;
+    font-size: 0.85em;
+    color: #8B4513;
+}
+
+.format-badge {
+    display: none !important; /* Removed visible NEW badges site-wide */
+}
+
+.align-btn {
+    cursor: pointer;
+    padding: 4px 8px;
+    background: #2196F3;
+    color: white;
+    border-radius: 5px;
+    font-size: 0.8em;
+    transition: all 0.3s;
+}
+
+.align-btn:hover {
+    background: #1976D2;
+}
+
+.align-btn.active {
+    background: #FF9800;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+/* Legacy 2D point markers removed — markers now rendered in 3D as sphere meshes */
+
+.align-section {
+    background: #e3f2fd;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+.align-section h4 {
+    color: #1976D2;
+    margin-bottom: 10px;
+    font-size: 0.95em;
+}
+
+.align-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.align-info {
+    background: white;
+    padding: 8px;
+    border-radius: 5px;
+    font-size: 0.8em;
+    color: #666;
+}
+
+.point-counter {
+    background: #4CAF50;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.85em;
+    margin: 5px 0;
+}
+
+.align-execute-btn {
+    padding: 10px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s;
+    font-size: 0.85em;
+}
+
+.align-execute-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.align-execute-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.align-action-btn {
+    padding: 8px;
+    background: #FF9800;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s;
+    font-size: 0.8em;
+}
+
+.align-action-btn:hover {
+    background: #F57C00;
+}
+
+.cancel-btn {
+    background: #f44336;
+}
+
+.cancel-btn:hover {
+    background: #d32f2f;
+}
+
+.download-box {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    border: 2px solid #4CAF50;
+}
+
+.format-select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #8B4513;
+    border-radius: 8px;
+    font-size: 1em;
+    margin-bottom: 10px;
+    background: white;
+    cursor: pointer;
+}
+
+.format-select:focus {
+    outline: none;
+    border-color: #D2691E;
+}
+
+.download-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    transition: all 0.3s;
+}
+
+.download-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+}
+
+.download-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Utility classes for inline style replacements */
+.text-muted {
+    color: #666;
+}
+
+.hidden {
+    display: none;
+}
+
+.flex-grow {
+    flex: 1;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.viewer-flex {
+    flex: 1;
+}
+
+.instruction-icon {
+    font-size: 3.5em;
+    margin-bottom: 15px;
+}
+
+.instruction-hint {
+    font-size: 0.75em;
+    margin-top: 8px;
+    color: #999;
+}
+
+/* Fullscreen mode responsive styles */
+@media (max-width: 1200px) {
+    .fullscreen-mode .fullscreen-controls {
+        max-width: 250px;
+        padding: 15px;
+    }
+
+    .fullscreen-mode .control-group {
+        margin-bottom: 10px;
+    }
+
+    .fullscreen-mode .control-group label {
+        font-size: 0.8em;
+    }
+
+    .fullscreen-mode .slider {
+        height: 5px;
+    }
+
+    .fullscreen-mode .value-display {
+        font-size: 0.75em;
+        padding: 3px 8px;
+    }
+}
+
+.fullscreen-mode .fullscreen-controls {
+    max-width: 220px;
+    padding: 12px;
+}
+
+.fullscreen-mode .control-group {
+    margin-bottom: 8px;
+}
+
+.fullscreen-mode .control-group label {
+    font-size: 0.75em;
+    margin-bottom: 3px;
+}
+
+.fullscreen-mode .slider {
+    height: 4px;
+}
+
+.fullscreen-mode .slider::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+}
+
+.fullscreen-mode .slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+}
+
+.fullscreen-mode .value-display {
+    font-size: 0.7em;
+    padding: 2px 6px;
+    margin-right: 5px;
+}
+
+@media (max-width: 768px) {
+    .fullscreen-mode .fullscreen-controls {
+        max-width: 180px;
+        padding: 10px;
+        top: 10px;
+        right: 10px;
+    }
+
+    .fullscreen-mode .control-group {
+        margin-bottom: 6px;
+    }
+
+    .fullscreen-mode .control-group label {
+        font-size: 0.7em;
+    }
+
+    .fullscreen-mode .slider {
+        height: 3px;
+    }
+
+    .fullscreen-mode .slider::-webkit-slider-thumb {
+        width: 12px;
+        height: 12px;
+    }
+
+    .fullscreen-mode .slider::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+    }
+
+    .fullscreen-mode .value-display {
+        font-size: 0.65em;
+        padding: 2px 5px;
+    }
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8f8f8 100%);
+    margin: 3% auto;
+    padding: 0;
+    border-radius: 20px;
+    width: 80%;
+    max-width: 900px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-close {
+    color: #8B4513;
+    float: left;
+    font-size: 35px;
+    font-weight: bold;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.modal-close:hover,
+.modal-close:focus {
+    color: #D2691E;
+    transform: scale(1.2);
+}
+
+.modal-body {
+    padding: 20px 40px 40px 40px;
+    direction: rtl;
+}
+
+.modal-body h2 {
+    color: #8B4513;
+    font-size: 2em;
+    margin-bottom: 15px;
+    text-align: center;
+    background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.modal-body h3 {
+    color: #2a5298;
+    font-size: 1.5em;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #2a5298;
+    padding-bottom: 8px;
+}
+
+.modal-body h4 {
+    color: #8B4513;
+    font-size: 1.2em;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.modal-body p {
+    line-height: 1.8;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.modal-body ul,
+.modal-body ol {
+    margin-right: 25px;
+    margin-bottom: 15px;
+    line-height: 1.8;
+}
+
+.modal-body li {
+    margin-bottom: 8px;
+    color: #444;
+}
+
+.modal-body strong {
+    color: #8B4513;
+    font-weight: 600;
+}
+
+.help-section {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    border-right: 4px solid #2a5298;
+}
+
+.help-footer {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid #e0e0e0;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.loading-help {
+    text-align: center;
+    padding: 40px;
+    font-size: 1.2em;
+    color: #666;
+}
+
+.error-message {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px;
+    text-align: center;
+}
+
+.error-message h3 {
+    color: #856404;
+    margin-bottom: 10px;
+}
+
+.error-message p {
+    color: #856404;
+}
+
+.readme-content {
+    direction: rtl;
+}
+
+.readme-content h1 {
+    color: #8B4513;
+    font-size: 2em;
+    margin-bottom: 15px;
+    text-align: center;
+    background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.readme-content h2 {
+    color: #2a5298;
+    font-size: 1.5em;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #2a5298;
+    padding-bottom: 8px;
+}
+
+.readme-content h3 {
+    color: #8B4513;
+    font-size: 1.2em;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.readme-content h4 {
+    color: #D2691E;
+    font-size: 1.1em;
+    margin-top: 15px;
+    margin-bottom: 8px;
+}
+
+.readme-content p {
+    line-height: 1.8;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.readme-content ul,
+.readme-content ol {
+    margin-right: 25px;
+    margin-bottom: 15px;
+    line-height: 1.8;
+}
+
+.readme-content li {
+    margin-bottom: 8px;
+    color: #444;
+}
+
+.readme-content strong {
+    color: #8B4513;
+    font-weight: 600;
+}
+
+.readme-content code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.readme-content hr {
+    border: none;
+    border-top: 2px solid #e0e0e0;
+    margin: 30px 0;
+}
+
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 5% auto;
+    }
+    
+    .modal-body {
+        padding: 15px 20px 25px 20px;
+    }
+    
+    .modal-body h2 {
+        font-size: 1.5em;
+    }
+    
+    .modal-body h3 {
+        font-size: 1.3em;
+    }
+    
+    .modal-body h4 {
+        font-size: 1.1em;
+    }
+    
+    .help-btn {
+        left: 15px;
+        top: 60px;
+        padding: 8px 15px;
+        font-size: 0.8em;
+    }
+}
+
+/* Phone size responsive styles */
+@media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        height: calc(100vh - 20px);
+        border-radius: 12px;
+    }
+
+    .header {
+        padding: 12px 15px;
+    }
+
+    .header h1 {
+        font-size: 1.3em;
+    }
+
+    .header p {
+        font-size: 0.8em;
+    }
+
+    .content {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+
+    .sidebar {
+        border-left: none;
+        border-bottom: 3px solid #8B4513;
+        padding: 12px;
+        max-height: 40vh;
+        order: 1;
+    }
+
+    .main-content {
+        order: 2;
+        min-height: 50vh;
+    }
+
+    .upload-section h3 {
+        font-size: 1em;
+    }
+
+    .upload-box {
+        padding: 12px;
+        border-radius: 10px;
+    }
+
+    .upload-icon {
+        font-size: 2em;
+    }
+
+    .model-item {
+        padding: 10px;
+    }
+
+    .model-name {
+        font-size: 0.85em;
+    }
+
+    .controls {
+        padding: 10px;
+    }
+
+    .fullscreen-btn {
+        padding: 8px 15px;
+        font-size: 0.85em;
+    }
+    
+    .help-btn {
+        position: static;
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 8px 15px;
+        font-size: 0.85em;
+        left: auto;
+        top: auto;
+    }
+
+    .control-group {
+        margin-bottom: 8px;
+    }
+
+    .control-group label {
+        font-size: 0.8em;
+    }
+
+    .value-display {
+        font-size: 0.75em;
+        padding: 3px 8px;
+    }
+
+    .viewer {
+        padding: 10px;
+    }
+
+    #canvas-container {
+        border-radius: 10px;
+    }
+
+    .instruction {
+        font-size: 0.9em;
+        padding: 0 10px;
+    }
+
+    .instruction-icon {
+        font-size: 2.5em;
+    }
+
+    .align-section {
+        padding: 10px;
+    }
+
+    .align-section h4 {
+        font-size: 0.85em;
+    }
+
+    .download-box {
+        padding: 10px;
+    }
+
+    .format-select {
+        padding: 8px;
+        font-size: 0.9em;
+    }
+
+    .download-btn {
+        padding: 10px;
+        font-size: 0.9em;
+    }
+
+    .close-fullscreen {
+        top: 10px;
+        left: 10px;
+        padding: 8px 16px;
+        font-size: 0.85em;
+    }
+}
+
+/* Extra small phones */
+@media (max-width: 360px) {
+    body {
+        padding: 5px;
+    }
+
+    .container {
+        height: calc(100vh - 10px);
+        border-radius: 8px;
+    }
+
+    .header {
+        padding: 10px;
+    }
+
+    .header h1 {
+        font-size: 1.1em;
+    }
+
+    .header p {
+        font-size: 0.75em;
+    }
+
+    .sidebar {
+        padding: 10px;
+        max-height: 35vh;
+    }
+
+    .upload-box {
+        padding: 10px;
+    }
+
+    .upload-icon {
+        font-size: 1.8em;
+    }
+
+    .model-controls {
+        gap: 3px;
+    }
+
+    .visibility-toggle,
+    .delete-btn,
+    .align-btn {
+        padding: 3px 6px;
+        font-size: 0.75em;
+    }
+}
