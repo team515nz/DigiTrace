@@ -856,8 +856,8 @@
                                 ${model.visible ? '👁️' : '🚫'}
                             </span>
                             <span class="visibility-toggle" onclick="rotateModelY(${model.id})">🔄Y</span>
-                            <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">⭕Z</span>
-                            <span class="visibility-toggle" onclick="flipModel(${model.id})">↕️X</span>
+                            <span class="visibility-toggle" onclick="rotateModelX(${model.id})">🔄X</span>
+                            <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">🔄Z</span>
                             <span class="align-btn ${alignState.selectingModel === model.id ? 'active' : ''}" onclick="selectModelForAlignment(${model.id})">📍</span>
                             <span class="delete-btn" onclick="deleteModel(${model.id})">🗑️</span>
                         </div>
@@ -896,10 +896,10 @@
             }
         }
 
-        function flipModel(id) {
+        function rotateModelX(id) {
             const model = models.find(m => m.id === id);
             if (model) {
-                model.group.rotation.x += Math.PI;
+                model.group.rotation.x += Math.PI / 2;
                 calculateGlobalBoundingBox();
                 applyCuts();
             }
