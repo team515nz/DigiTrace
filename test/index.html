@@ -58,63 +58,35 @@
                     </div>
                 </div>
 
-                <!-- נקודות יישור קבועות -->
+                <!-- נקודות יישור קבועות — Beta -->
                 <div class="upload-section" id="anchorSection">
-                    <h3>📌 נקודות יישור קבועות</h3>
-                    <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,160,0,0.15);border:1px solid rgba(255,160,0,0.4);border-radius:5px;padding:3px 8px;margin-bottom:7px;font-size:0.78em;color:#ffa040;">
-                        🧪 Beta — יישור אוטומטי עדיין לא מדויק ולא יציב
-                    </div>
-                    <div style="font-size:0.82em;color:#aaa;margin-bottom:8px;">
-                        בחר נקודות על מודל בסיס — כל מודל חדש יתיישר אליהן אוטומטית.
-                    </div>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-                        <button class="align-execute-btn" id="startAnchorBtn" onclick="startAnchorPicking()" style="flex:1;font-size:0.82em;padding:6px;">
+                    <h3>📌 נקודות עגינה <span style="font-size:0.65em;background:#ff9800;color:#000;padding:1px 6px;border-radius:4px;vertical-align:middle;">Beta</span></h3>
+                    <p style="font-size:0.8em;color:#666;margin-bottom:10px;line-height:1.4;">
+                        סמן נקודות על מודל בסיס — מודלים חדשים יתיישרו אליהן אוטומטית.
+                    </p>
+                    <div style="display:flex;gap:6px;margin-bottom:10px;">
+                        <button class="align-execute-btn" id="startAnchorBtn" onclick="startAnchorPicking()" style="flex:1;font-size:0.82em;">
                             🖱️ בחר נקודות
                         </button>
-                        <button class="align-execute-btn cancel-btn" onclick="clearAnchorPoints()" style="flex:1;font-size:0.82em;padding:6px;">
+                        <button class="align-execute-btn cancel-btn" onclick="clearAnchorPoints()" style="flex:1;font-size:0.82em;">
                             🗑️ נקה
                         </button>
                     </div>
-                    <div id="anchorStatus" style="font-size:0.8em;color:#8af;margin-bottom:6px;">
-                        אין נקודות קבועות
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px;font-size:0.82em;color:#ccc;margin-bottom:4px;">
-                        <label>סף שגיאה:</label>
+                    <div id="anchorStatus" class="anchor-status-badge">אין נקודות קבועות</div>
+                    <div style="display:flex;align-items:center;gap:8px;font-size:0.82em;color:#555;margin-top:8px;">
+                        <label style="white-space:nowrap;">סף שגיאה:</label>
                         <input type="number" id="anchorThreshold" value="0.5" min="0.01" step="0.05"
-                            style="width:70px;background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:4px;padding:3px 6px;font-size:0.9em;">
+                            style="width:65px;border:1px solid #ccc;border-radius:5px;padding:3px 6px;font-size:0.9em;">
                         <span>יח' סצנה</span>
                     </div>
-                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82em;color:#ccc;cursor:pointer;">
-                        <input type="checkbox" id="anchorAutoAlign" checked style="cursor:pointer;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82em;color:#555;cursor:pointer;margin-top:6px;">
+                        <input type="checkbox" id="anchorAutoAlign" checked style="cursor:pointer;accent-color:#8B4513;">
                         יישור אוטומטי למודל חדש
                     </label>
                 </div>
 
-                <div class="upload-section hidden" id="alignSection">
-                    <div class="align-section">
-                        <h4 data-i18n="alignTitle">🎯 יישור מודלים גמיש</h4>
-                        <div class="align-controls">
-                            <div class="align-info" id="alignStatus" data-i18n="alignInfo">
-                                לחץ על 📍 ליד מודל ובחר נקודות עליו
-                            </div>
-                            <div class="point-counter" id="pointCounter" data-i18n="pointCounter">
-                                מודל 1: 0 נקודות | מודל 2: 0 נקודות
-                            </div>
-                            <button class="align-action-btn hidden" id="finishModelBtn" data-i18n="finishModelBtn" onclick="finishCurrentModel()">
-                                סיים מודל נוכחי →
-                            </button>
-                            <button class="align-action-btn hidden" id="undoPointBtn" data-i18n="undoPointBtn" onclick="undoLastPoint()">
-                                ↶ מחק נקודה אחרונה
-                            </button>
-                            <button class="align-execute-btn" id="executeAlignBtn" data-i18n="executeAlignBtn" onclick="executeAlignment()" disabled>
-                                יישר מודלים
-                            </button>
-                            <button class="align-execute-btn cancel-btn" data-i18n="cancelBtn" onclick="cancelAlignment()">
-                                ביטול
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <!-- hidden inputs for alignment state (no inline sidebar panel) -->
+                <div id="alignSection" class="hidden"></div>
             </div>
 
             <div class="main-content">
@@ -196,7 +168,90 @@
         </div>
     </div>
 
-<!-- ruler overlay - outside all modals so it's always on top -->
+<!-- ===== פאנל יישור צף (חדש) ===== -->
+<div id="alignFloatPanel" style="display:none;">
+    <div id="alignFloatPanelInner">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div style="font-weight:700;font-size:1em;display:flex;align-items:center;gap:8px;">
+                <span style="background:#4a90d9;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-size:0.85em;" id="alignStepCircle">1</span>
+                <span id="alignPanelTitle">🎯 יישור מודלים</span>
+            </div>
+            <button onclick="cancelAlignment()" style="background:rgba(255,255,255,0.1);border:none;color:#eee;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:0.85em;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,80,80,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">✕ ביטול</button>
+        </div>
+
+        <!-- Step indicators -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;">
+            <div class="align-step" id="aStep1" style="flex:1;">
+                <div class="align-step-num">1</div>
+                <div class="align-step-lbl">בחר מודל 1</div>
+            </div>
+            <div style="width:20px;height:2px;background:rgba(255,255,255,0.2);flex-shrink:0;"></div>
+            <div class="align-step" id="aStep2" style="flex:1;">
+                <div class="align-step-num">2</div>
+                <div class="align-step-lbl">סמן נקודות</div>
+            </div>
+            <div style="width:20px;height:2px;background:rgba(255,255,255,0.2);flex-shrink:0;"></div>
+            <div class="align-step" id="aStep3" style="flex:1;">
+                <div class="align-step-num">3</div>
+                <div class="align-step-lbl">בחר מודל 2</div>
+            </div>
+            <div style="width:20px;height:2px;background:rgba(255,255,255,0.2);flex-shrink:0;"></div>
+            <div class="align-step" id="aStep4" style="flex:1;">
+                <div class="align-step-num">4</div>
+                <div class="align-step-lbl">יישר!</div>
+            </div>
+        </div>
+
+        <!-- Status message -->
+        <div id="alignStatus" style="background:rgba(74,144,217,0.15);border:1px solid rgba(74,144,217,0.3);border-radius:8px;padding:10px 14px;font-size:0.88em;color:#acd;margin-bottom:14px;line-height:1.5;min-height:44px;display:flex;align-items:center;">
+            לחץ על כפתור ⊕ ליד מודל ברשימה כדי להתחיל
+        </div>
+
+        <!-- Point counters -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;" id="alignCountersRow">
+            <div class="align-counter-box" id="counter1Box">
+                <div class="align-counter-label">מודל 1</div>
+                <div class="align-counter-name" id="alignModel1Name">—</div>
+                <div class="align-counter-val"><span id="alignCount1">0</span> נקודות</div>
+            </div>
+            <div class="align-counter-box" id="counter2Box">
+                <div class="align-counter-label">מודל 2</div>
+                <div class="align-counter-name" id="alignModel2Name">—</div>
+                <div class="align-counter-val"><span id="alignCount2">0</span> נקודות</div>
+            </div>
+        </div>
+
+        <!-- Tip about clicking -->
+        <div id="alignClickTip" style="display:none;background:rgba(255,160,0,0.12);border:1px solid rgba(255,160,0,0.35);border-radius:7px;padding:8px 12px;font-size:0.8em;color:#fdb;margin-bottom:12px;">
+            ⚠️ לחץ <strong>על המודל</strong> עצמו, לא על הרקע
+        </div>
+
+        <!-- Action buttons -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="finishModelBtn" onclick="finishCurrentModel()" class="align-panel-btn" style="display:none;background:#4a90d9;">
+                ✓ סיים מודל נוכחי
+            </button>
+            <button id="undoPointBtn" onclick="undoLastPoint()" class="align-panel-btn" style="display:none;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);">
+                ↶ בטל נקודה
+            </button>
+            <button id="executeAlignBtn" onclick="executeAlignment()" class="align-panel-btn align-panel-btn-execute" disabled>
+                🎯 יישר מודלים!
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- anchor mode overlay bar -->
+<div id="anchorPickingBar" style="display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(20,40,80,0.93);backdrop-filter:blur(8px);border:1px solid rgba(74,144,217,0.5);border-radius:12px;padding:10px 20px;color:#eee;z-index:5001;align-items:center;gap:14px;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+    <span style="font-size:0.9em;">📌 <strong>מצב בחירת נקודות עגינה</strong> — לחץ על המודלים לסימון</span>
+    <button onclick="startAnchorPicking()" style="background:#4a90d9;border:none;color:#fff;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:0.85em;font-weight:600;">✓ סיים</button>
+    <span style="font-size:0.8em;color:#aaa;">או ESC</span>
+</div>
+
+<!-- ruler overlay moved to body level -->
+<div id="alignMissFlash" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(200,60,60,0.85);color:#fff;padding:10px 22px;border-radius:10px;font-size:0.9em;pointer-events:none;z-index:9999;white-space:nowrap;"></div>
+
 <div id="rulerOverlay" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.9em;pointer-events:none;z-index:10000;white-space:nowrap;"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -394,23 +449,26 @@
                     return;
                 }
 
-                if (alignState.active && alignState.selectingModel !== null) {
-                    const rect = container.getBoundingClientRect();
-                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                    
-                    raycaster.setFromCamera(mouse, camera);
-                    const currentModel = models.find(m => m.id === alignState.selectingModel);
-                    
-                    if (currentModel) {
-                        const meshes = currentModel.meshes || (currentModel.mesh ? [currentModel.mesh] : []);
-                        const intersects = raycaster.intersectObjects(meshes, true);
-                        
-                        if (intersects.length > 0) {
-                            selectAlignmentPoint(e.clientX, e.clientY);
-                            return;
+                if (alignState.active) {
+                    if (alignState.selectingModel !== null) {
+                        const rect = container.getBoundingClientRect();
+                        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                        raycaster.setFromCamera(mouse, camera);
+                        const currentModel = models.find(m => m.id === alignState.selectingModel);
+                        if (currentModel) {
+                            const meshes = currentModel.meshes || (currentModel.mesh ? [currentModel.mesh] : []);
+                            const intersects = raycaster.intersectObjects(meshes, true);
+                            if (intersects.length > 0) {
+                                selectAlignmentPoint(e.clientX, e.clientY);
+                            } else {
+                                showAlignMissFlash('לחץ על המודל עצמו, לא על הרקע');
+                            }
+                        } else {
+                            showAlignMissFlash('בחר מודל מהרשימה תחילה');
                         }
                     }
+                    return; // block camera drag entirely while in align mode
                 }
                 
                 isDragging = true;
@@ -1024,7 +1082,12 @@
                             <span class="visibility-toggle" onclick="rotateModelY(${model.id})">🔄Y</span>
                             <span class="visibility-toggle" onclick="rotateModelX(${model.id})">🔄X</span>
                             <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">🔄Z</span>
-                            <span class="align-btn ${alignState.selectingModel === model.id ? 'active' : ''}" onclick="selectModelForAlignment(${model.id})">📍</span>
+                            <span class="align-btn ${alignState.active && (alignState.model1 === model.id || alignState.model2 === model.id) ? 'active' : ''}" 
+                                  onclick="selectModelForAlignment(${model.id})" 
+                                  title="יישור מודל זה"
+                                  style="${alignState.active && alignState.model1 !== model.id && alignState.model2 !== null ? 'opacity:0.4;cursor:not-allowed;' : ''}">
+                                ⊕ יישר
+                            </span>
                             <span class="delete-btn" onclick="deleteModel(${model.id})">🗑️</span>
                         </div>
                     </div>
@@ -1677,7 +1740,70 @@
             }
         });
 
-        // ===== פונקציות יישור גמיש =====
+        // ===== פונקציות יישור גמיש — UI חדש =====
+
+        function showAlignMissFlash(msg) {
+            const el = document.getElementById('alignMissFlash');
+            if (!el) return;
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.opacity = '1';
+            clearTimeout(el._t);
+            el._t = setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => { el.style.display = 'none'; }, 300);
+            }, 1500);
+            // also show tip in panel
+            const tip = document.getElementById('alignClickTip');
+            if (tip) { tip.style.display = 'block'; clearTimeout(tip._t); tip._t = setTimeout(() => tip.style.display = 'none', 3000); }
+        }
+
+        function openAlignPanel() {
+            const panel = document.getElementById('alignFloatPanel');
+            if (panel) panel.style.display = 'flex';
+            document.getElementById('canvas-container').classList.add('align-mode');
+        }
+
+        function updateAlignPanel() {
+            // Step indicators
+            const step = alignState.model1 === null ? 1 :
+                         (alignState.model2 === null ? 2) : 3;
+            // highlight steps
+            [1,2,3,4].forEach(n => {
+                const el = document.getElementById('aStep' + n);
+                if (!el) return;
+                const done = (n === 1 && alignState.model1 !== null) ||
+                             (n === 2 && alignState.points1.length >= alignState.minPoints && alignState.model2 !== null) ||
+                             (n === 3 && alignState.model2 !== null && alignState.points2.length > 0) ||
+                             (n === 4 && !document.getElementById('executeAlignBtn').disabled);
+                const active = (n === 1 && alignState.model1 === null) ||
+                               (n === 2 && alignState.model1 !== null && alignState.model2 === null) ||
+                               (n === 3 && alignState.model2 !== null && alignState.selectingModel === alignState.model2 && alignState.points2.length === 0) ||
+                               (n === 4 && !document.getElementById('executeAlignBtn').disabled);
+                el.className = 'align-step' + (done ? ' done' : active ? ' active' : '');
+            });
+
+            // counters
+            document.getElementById('alignCount1').textContent = alignState.points1.length;
+            document.getElementById('alignCount2').textContent = alignState.points2.length;
+
+            const m1 = alignState.model1 !== null ? models.find(m => m.id === alignState.model1) : null;
+            const m2 = alignState.model2 !== null ? models.find(m => m.id === alignState.model2) : null;
+            document.getElementById('alignModel1Name').textContent = m1 ? m1.name.split('.')[0] : '—';
+            document.getElementById('alignModel2Name').textContent = m2 ? m2.name.split('.')[0] : '—';
+
+            // box highlighting
+            const b1 = document.getElementById('counter1Box');
+            const b2 = document.getElementById('counter2Box');
+            if (b1) b1.className = 'align-counter-box' + (alignState.selectingModel === alignState.model1 ? ' active' : '');
+            if (b2) b2.className = 'align-counter-box' + (alignState.selectingModel === alignState.model2 ? ' active' : '');
+
+            // show/hide buttons
+            const finishBtn = document.getElementById('finishModelBtn');
+            const undoBtn = document.getElementById('undoPointBtn');
+            if (finishBtn) finishBtn.style.display = alignState.selectingModel !== null ? 'inline-block' : 'none';
+            if (undoBtn) undoBtn.style.display = alignState.selectingModel !== null ? 'inline-block' : 'none';
+        }
 
         function selectModelForAlignment(modelId) {
             const model = models.find(m => m.id === modelId);
@@ -1687,35 +1813,35 @@
             }
 
             if (!alignState.active) {
-                // התחלת מצב יישור
+                // התחלה ראשונה — מודל 1
                 alignState.active = true;
                 alignState.selectingModel = modelId;
                 alignState.model1 = modelId;
                 alignState.points1 = [];
-                document.getElementById('alignSection').classList.remove('hidden');
-                document.getElementById('canvas-container').classList.add('align-mode');
-                updateAlignStatus('בחר נקודות על ' + model.name + ' (לפחות ' + alignState.minPoints + ')');
-                updatePointCounter();
-                showAlignButtons();
-            } else if (alignState.model1 === modelId) {
-                // המשך עבודה עם מודל 1
+                openAlignPanel();
+                updateAlignStatus('לחץ על נקודות ב־' + model.name + ' (לפחות ' + alignState.minPoints + ')');
+            } else if (alignState.model1 === modelId && !alignState.model2) {
+                // לחץ שוב על מודל 1 — חזרה לבחירה
                 alignState.selectingModel = modelId;
-                updateAlignStatus('בחר נקודות נוספות על ' + model.name);
+                updateAlignStatus('ממשיך בחירת נקודות על ' + model.name);
             } else if (alignState.model2 === modelId) {
-                // המשך עבודה עם מודל 2
                 alignState.selectingModel = modelId;
-                updateAlignStatus('בחר נקודות נוספות על ' + model.name);
+                updateAlignStatus('ממשיך בחירת נקודות על ' + model.name);
             } else if (!alignState.model2 && alignState.points1.length >= alignState.minPoints) {
-                // בחירת מודל שני
+                // בחירת מודל 2
                 alignState.model2 = modelId;
                 alignState.selectingModel = modelId;
                 alignState.points2 = [];
-                updateAlignStatus('בחר ' + alignState.points1.length + ' נקודות על ' + model.name);
-                updatePointCounter();
+                updateAlignStatus('כעת לחץ על ' + alignState.points1.length + ' נקודות מקבילות ב־' + model.name);
+            } else if (!alignState.model2) {
+                showToast('בחר קודם לפחות ' + alignState.minPoints + ' נקודות על מודל 1', 'error');
+                return;
             } else {
-                alert('תחילה בחר לפחות ' + alignState.minPoints + ' נקודות במודל הראשון');
+                showToast('כבר נבחרו שני מודלים. לחץ "ביטול" להתחלה מחדש', 'error');
+                return;
             }
 
+            updateAlignPanel();
             updateModelList();
         }
 
@@ -1739,25 +1865,29 @@
                     add3DPointMarker(point.clone(), `M1-${alignState.points1.length}`, currentModel.id);
                     
                     if (alignState.points1.length >= alignState.minPoints) {
-                        updateAlignStatus('יש לך ' + alignState.points1.length + ' נקודות. לחץ "סיים מודל" או הוסף עוד נקודות');
+                        updateAlignStatus(`✓ ${alignState.points1.length} נקודות על מודל 1. לחץ "סיים מודל" ואז בחר מודל 2`);
                     } else {
-                        updateAlignStatus('בחר עוד ' + (alignState.minPoints - alignState.points1.length) + ' נקודות לפחות');
+                        updateAlignStatus(`נקודה ${alignState.points1.length} נבחרה. צריך עוד ${alignState.minPoints - alignState.points1.length}`);
                     }
                 } else if (alignState.selectingModel === alignState.model2) {
                     alignState.points2.push(point);
                     add3DPointMarker(point.clone(), `M2-${alignState.points2.length}`, currentModel.id);
                     
                     if (alignState.points2.length === alignState.points1.length) {
-                        updateAlignStatus('כל הנקודות נבחרו! לחץ "יישר מודלים"');
+                        updateAlignStatus('✅ כל הנקודות נבחרו! לחץ "יישר מודלים"');
                         document.getElementById('executeAlignBtn').disabled = false;
                     } else if (alignState.points2.length >= alignState.minPoints) {
-                        updateAlignStatus('בחרת ' + alignState.points2.length + ' נקודות. לחץ "סיים מודל" או הוסף עד ' + alignState.points1.length);
+                        updateAlignStatus(`${alignState.points2.length} נקודות נבחרו (צריך ${alignState.points1.length}). הוסף עוד או לחץ "סיים מודל"`);
                     } else {
-                        updateAlignStatus('בחר עוד ' + (alignState.minPoints - alignState.points2.length) + ' נקודות לפחות');
+                        updateAlignStatus(`נקודה ${alignState.points2.length} נבחרה. עוד ${alignState.minPoints - alignState.points2.length} לפחות`);
                     }
                 }
                 
-                updatePointCounter();
+                // hide click tip on success
+                const tip = document.getElementById('alignClickTip');
+                if (tip) tip.style.display = 'none';
+                
+                updateAlignPanel();
             }
         }
 
@@ -1813,43 +1943,41 @@
         }
 
         function updateAlignStatus(message) {
-            setTextCensored(document.getElementById('alignStatus'), message);
+            const el = document.getElementById('alignStatus');
+            if (el) setTextCensored(el, message);
         }
 
         function updatePointCounter() {
-            const counter = document.getElementById('pointCounter');
-            setTextCensored(counter, `מודל 1: ${alignState.points1.length} נקודות | מודל 2: ${alignState.points2.length} נקודות`);
+            updateAlignPanel();
         }
 
         function showAlignButtons() {
-            document.getElementById('finishModelBtn').classList.remove('hidden');
-            document.getElementById('undoPointBtn').classList.remove('hidden');
+            updateAlignPanel();
         }
 
         function finishCurrentModel() {
             if (alignState.selectingModel === alignState.model1) {
                 if (alignState.points1.length < alignState.minPoints) {
-                    alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות');
+                    showToast('יש לבחור לפחות ' + alignState.minPoints + ' נקודות', 'error');
                     return;
                 }
-                updateAlignStatus(censor('מודל 1 הושלם עם ' + alignState.points1.length + ' נקודות. בחר מודל שני'));
+                updateAlignStatus('✓ מודל 1 הושלם — ' + alignState.points1.length + ' נקודות. כעת לחץ ⊕ על מודל 2');
                 alignState.selectingModel = null;
             } else if (alignState.selectingModel === alignState.model2) {
                 if (alignState.points2.length < alignState.minPoints) {
-                    alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות');
+                    showToast('יש לבחור לפחות ' + alignState.minPoints + ' נקודות', 'error');
                     return;
                 }
                 if (alignState.points2.length !== alignState.points1.length) {
-                    const confirmMsg = censor(`בחרת ${alignState.points2.length} נקודות במודל 2 אך יש ${alignState.points1.length} במודל 1.\nהמערכת תשתמש רק ב-${Math.min(alignState.points1.length, alignState.points2.length)} הראשונות.\nלהמשיך?`);
-                    if (!confirm(confirmMsg)) {
-                        return;
-                    }
+                    const confirmMsg = censor(`בחרת ${alignState.points2.length} נקודות במודל 2 אך יש ${alignState.points1.length} במודל 1.\nתשמש ב-${Math.min(alignState.points1.length, alignState.points2.length)} הראשונות.\nלהמשיך?`);
+                    if (!confirm(confirmMsg)) return;
                 }
-                updateAlignStatus('שני המודלים הושלמו! לחץ "יישר מודלים"');
+                updateAlignStatus('✅ שני המודלים הושלמו! לחץ "יישר מודלים"');
                 document.getElementById('executeAlignBtn').disabled = false;
                 alignState.selectingModel = null;
             }
             
+            updateAlignPanel();
             updateModelList();
         }
 
@@ -1857,18 +1985,16 @@
             if (alignState.selectingModel === alignState.model1 && alignState.points1.length > 0) {
                 alignState.points1.pop();
                 removeLastMarker('M1');
-                updatePointCounter();
-                updateAlignStatus('נקודה אחרונה נמחקה. סה"כ: ' + alignState.points1.length + ' נקודות');
+                updateAlignStatus('נקודה אחרונה בוטלה. נותרו: ' + alignState.points1.length);
             } else if (alignState.selectingModel === alignState.model2 && alignState.points2.length > 0) {
                 alignState.points2.pop();
                 removeLastMarker('M2');
-                updatePointCounter();
-                updateAlignStatus('נקודה אחרונה נמחקה. סה"כ: ' + alignState.points2.length + ' נקודות');
+                updateAlignStatus('נקודה אחרונה בוטלה. נותרו: ' + alignState.points2.length);
             }
             
-            if (alignState.points2.length !== alignState.points1.length) {
-                document.getElementById('executeAlignBtn').disabled = true;
-            }
+            document.getElementById('executeAlignBtn').disabled = 
+                !(alignState.points1.length >= alignState.minPoints && alignState.points2.length >= alignState.minPoints);
+            updateAlignPanel();
         }
 
         function removeLastMarker(prefix) {
@@ -1980,9 +2106,7 @@
             applyCuts();
             cancelAlignment();
             
-            alert(`המודלים יושרו בהצלחה! ✓\n` +
-                  `נקודות: ${numPoints}\n` +
-                  `שגיאה ממוצעת: ${avgError.toFixed(6)}`);
+            showToast(`✓ יושר בהצלחה! ${numPoints} נקודות, שגיאה: ${avgError.toFixed(4)}`);
         }
 
         function calculateOptimalRotation(sourcePoints, targetPoints) {
@@ -2034,10 +2158,10 @@
                 minPoints: 2
             };
 
-            document.getElementById('alignSection').classList.add('hidden');
+            // close floating panel
+            const panel = document.getElementById('alignFloatPanel');
+            if (panel) panel.style.display = 'none';
             document.getElementById('executeAlignBtn').disabled = true;
-            document.getElementById('finishModelBtn').classList.add('hidden');
-            document.getElementById('undoPointBtn').classList.add('hidden');
             document.getElementById('canvas-container').classList.remove('align-mode');
             
             updateModelList();
@@ -2051,16 +2175,20 @@
             if (!el) return;
             const n = anchorState.points.length;
             if (n === 0) {
-                el.textContent = 'אין נקודות קבועות';
-                el.style.color = '#888';
+                el.textContent = 'אין נקודות עגינה';
+                el.className = 'anchor-status-badge';
             } else if (anchorState.picking) {
-                el.textContent = censor(`בוחר נקודות: ${n} עד כה — לחץ ESC לסיום`);
-                el.style.color = '#fa0';
+                el.textContent = censor(`🔵 בוחר... ${n} נקודות עד כה`);
+                el.className = 'anchor-status-badge picking';
             } else {
-                el.textContent = censor(`${n} נקודות קבועות מוגדרות ✓`);
-                el.style.color = '#8f8';
+                el.textContent = censor(`✓ ${n} נקודות מוגדרות`);
+                el.className = 'anchor-status-badge set';
             }
             document.getElementById('startAnchorBtn').textContent = anchorState.picking ? '✓ סיים בחירה' : '🖱️ בחר נקודות';
+            
+            // show/hide picking bar
+            const bar = document.getElementById('anchorPickingBar');
+            if (bar) bar.style.display = anchorState.picking ? 'flex' : 'none';
         }
 
         function startAnchorPicking() {
