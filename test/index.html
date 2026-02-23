@@ -351,8 +351,10 @@
                 reader.onload = function(e) {
                     const text = e.target.result;
                     try {
+                        const isAligned = text.startsWith('# DIGIALIGNED');
                         const geometry = parseOBJ(text);
                         if (geometry && geometry.attributes.position.count > 0) {
+                            geometry.userData = { isAligned };
                             resolve([geometry]);
                         } else {
                             reject(new Error('הקובץ ריק או לא תקין'));
@@ -436,8 +438,13 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     try {
+                        // בדוק אם ה-header מכיל את ה-magic string
+                        const headerBytes = new Uint8Array(e.target.result, 0, 80);
+                        const headerText = new TextDecoder().decode(headerBytes);
+                        const isAligned = headerText.includes('DIGIALIGNED');
                         const geometry = parseSTL(e.target.result);
                         if (geometry) {
+                            geometry.userData = { isAligned };
                             resolve([geometry]);
                         } else {
                             reject(new Error('Failed to parse STL'));
@@ -755,7 +762,7 @@
                 }
 
                 const mainGroup = new THREE.Group();
-                const isAligned = file.name.startsWith('aligned_');
+                const isAligned = geometries.some(g => g.userData && g.userData.isAligned);
 
                 geometries.forEach((geometry, index) => {
                     if (!geometry || !geometry.attributes.position) {
@@ -1713,8 +1720,8 @@
             const buffer = new ArrayBuffer(bufferLength);
             const view = new DataView(buffer);
 
-            // Header (80 bytes)
-            const header = 'Binary STL exported from Archaeological Site Viewer';
+            // Header (80 bytes) — כולל magic string לזיהוי קובץ מיושר
+            const header = 'DIGIALIGNED Binary STL exported from DigiTrace';
             for (let i = 0; i < 80; i++) {
                 view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
             }
@@ -1749,7 +1756,7 @@
             const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
             const indices = geometry.index ? geometry.index.array : null;
 
-            let obj = '# OBJ exported from Archaeological Site Viewer\n';
+            let obj = '# DIGIALIGNED\n# OBJ exported from DigiTrace\n';
             obj += '# Vertices: ' + (positions.length / 3) + '\n\n';
 
             // Vertices
