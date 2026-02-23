@@ -1767,7 +1767,7 @@
         function updateAlignPanel() {
             // Step indicators
             const step = alignState.model1 === null ? 1 :
-                         (alignState.model2 === null ? 2) : 3;
+                         (alignState.model2 === null ? 2 : 3);
             // highlight steps
             [1,2,3,4].forEach(n => {
                 const el = document.getElementById('aStep' + n);
@@ -2671,6 +2671,7 @@
                     // דלג על markers של יישור
                     if (mesh.userData && mesh.userData.label) return;
                     if (mesh.isSprite) return;
+                    const geometry = mesh.geometry;
                     if (!geometry || !geometry.attributes || !geometry.attributes.position) {
                         console.log('Skipping mesh with no geometry');
                         return;
