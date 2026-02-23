@@ -1283,15 +1283,23 @@
             }
         }
 
+        function censorNumber(str) {
+            // צנזור 67 בכל הקשר — מחליף כל הופעה של המספר האסור ב-🚫
+            return str.replace(/\b67(?=[^\d]|$)/g, '🚫');
+        }
+
         function formatDistance(val, unit) {
             // convert to meters first, then display nicely
             const toM = UNIT_TO_METERS[unit] || 1;
             const meters = val * toM;
 
-            if (meters >= 1000) return (meters / 1000).toFixed(3) + ' km';
-            if (meters >= 1)    return meters.toFixed(4) + ' m';
-            if (meters >= 0.01) return (meters * 100).toFixed(3) + ' cm';
-            return (meters * 1000).toFixed(3) + ' mm';
+            let result;
+            if (meters >= 1000) result = (meters / 1000).toFixed(3) + ' km';
+            else if (meters >= 1)    result = meters.toFixed(4) + ' m';
+            else if (meters >= 0.01) result = (meters * 100).toFixed(3) + ' cm';
+            else result = (meters * 1000).toFixed(3) + ' mm';
+
+            return censorNumber(result);
         }
         const UNIT_TO_METERS = { mm: 0.001, cm: 0.01, m: 1, inch: 0.0254, ft: 0.3048 };
         let pendingFiles = [];
