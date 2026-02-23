@@ -1104,6 +1104,14 @@
             modelUnit: 'm'   // unit of the model clicked
         };
 
+        function setRulerBtnStyle(active, finished) {
+            const color = finished ? '#5a7a5a' : active ? '#8a5a5a' : '#5a5a8a';
+            ['rulerBtn','rulerBtnFS'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.background = color;
+            });
+        }
+
         function toggleRuler() {
             if (rulerState.active) {
                 cancelRuler();
@@ -1112,7 +1120,7 @@
                 rulerState.active = true;
                 rulerState.points = [];
                 clearRulerObjects();
-                document.getElementById('rulerBtn').style.background = '#8a5a5a';
+                setRulerBtnStyle(true, false);
                 document.getElementById('canvas-container').style.cursor = 'crosshair';
                 showRulerOverlay('📏 לחץ על נקודה ראשונה במודל');
             }
@@ -1121,7 +1129,7 @@
         function cancelRuler() {
             rulerState.active = false;
             clearRulerObjects();
-            document.getElementById('rulerBtn').style.background = '#5a5a8a';
+            setRulerBtnStyle(false, false);
             document.getElementById('canvas-container').style.cursor = '';
             document.getElementById('rulerOverlay').style.display = 'none';
         }
@@ -1212,7 +1220,7 @@
 
                 // keep active=false so user can rotate, but keep display
                 rulerState.active = false;
-                document.getElementById('rulerBtn').style.background = '#5a7a5a';
+                setRulerBtnStyle(false, true);
                 document.getElementById('canvas-container').style.cursor = '';
             }
         }
@@ -2881,7 +2889,8 @@
             await restoreFullSession();
         });
 
-
+    </script>
+    <script src="translations.js"></script>
     <script>
     (function(){
       const langSelect = document.getElementById('langSelect');
