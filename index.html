@@ -1291,28 +1291,54 @@
         }
 
         function add3DPointMarker(point, label, modelId) {
-            // Add a small sphere marker as a child of the model's group so it transforms with the model
             const model = models.find(m => m.id === modelId);
             if (!model || !model.group) return;
 
-            // compute local position in model's space
             const worldToLocal = model.group.matrixWorld.clone().invert();
             const localPos = point.clone().applyMatrix4(worldToLocal);
 
-            // estimate size based on model bounding box
             const bbox = new THREE.Box3().setFromObject(model.group);
             const sizeVec = new THREE.Vector3(); bbox.getSize(sizeVec);
             const maxDim = Math.max(sizeVec.x, sizeVec.y, sizeVec.z, 1);
             const radius = Math.max(0.02, maxDim * 0.01);
 
+            // sphere
+            const isModel2 = label.startsWith('M2');
+            const sphereColor = isModel2 ? 0x4444FF : 0xFF4444;
             const geom = new THREE.SphereGeometry(radius, 8, 8);
-            const mat = new THREE.MeshStandardMaterial({ color: 0xFF4444, emissive: 0x220000 });
+            const mat = new THREE.MeshStandardMaterial({ color: sphereColor, emissive: isModel2 ? 0x000022 : 0x220000 });
             const sphere = new THREE.Mesh(geom, mat);
             sphere.position.copy(localPos);
             sphere.userData = { label, modelId };
-
             model.group.add(sphere);
+
+            // number label — extract just the number from label (e.g. "M1-3" → "3")
+            const num = label.split('-')[1] || label;
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 64, 64);
+            ctx.fillStyle = isModel2 ? '#4488ff' : '#ff4444';
+            ctx.beginPath(); ctx.arc(32, 32, 28, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(num, 32, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+            const sprite = new THREE.Sprite(spriteMat);
+            const spriteSize = radius * 3;
+            sprite.scale.set(spriteSize, spriteSize, 1);
+            sprite.position.copy(localPos);
+            sprite.position.x += radius * 2;
+            sprite.position.y += radius * 2;
+            sprite.userData = { label, modelId, isSprite: true };
+            model.group.add(sprite);
+
             alignState.markers.push({ label, mesh: sphere, modelId });
+            alignState.markers.push({ label, mesh: sprite, modelId });
         }
 
         function updateAlignStatus(message) {
@@ -1581,8 +1607,9 @@
 
                 meshes.forEach(mesh => {
                     if (!mesh.visible) return;
-
-                    const geometry = mesh.geometry;
+                    // דלג על markers של יישור
+                    if (mesh.userData && mesh.userData.label) return;
+                    if (mesh.isSprite) return;
                     if (!geometry || !geometry.attributes || !geometry.attributes.position) {
                         console.log('Skipping mesh with no geometry');
                         return;
@@ -2228,6 +2255,9 @@
             const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
             meshes.forEach(mesh => {
                 if (!mesh.visible) return;
+                // דלג על markers של יישור (כדורים וספרייטים)
+                if (mesh.userData && mesh.userData.label) return;
+                if (mesh.isSprite) return;
                 const geometry = mesh.geometry;
                 if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
                 const positions = geometry.attributes.position.array;
