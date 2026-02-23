@@ -88,6 +88,7 @@
             <div class="main-content">
                 <div class="controls">
                     <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
+                    <button class="fullscreen-btn" id="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;">📏 סרגל</button>
                     
                     <div class="control-group">
                         <label>
@@ -153,6 +154,8 @@
                                 <strong>יישור גמיש: בחר כמה נקודות שתרצה!</strong>
                             </div>
                         </div>
+                        <!-- ruler overlay -->
+                        <div id="rulerOverlay" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.9em;pointer-events:none;z-index:10;white-space:nowrap;"></div>
                     </div>
                 </div>
             </div>
@@ -309,6 +312,12 @@
             const container = document.getElementById('canvas-container');
             
             container.addEventListener('mousedown', (e) => {
+                // ruler mode
+                if (rulerState.active) {
+                    pickRulerPoint(e.clientX, e.clientY);
+                    return;
+                }
+
                 if (alignState.active && alignState.selectingModel !== null) {
                     const rect = container.getBoundingClientRect();
                     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1073,7 +1082,138 @@
             });
         }
 
-        // ===== יחידות מידה =====
+        // ===== סרגל קנה מידה =====
+        let rulerState = {
+            active: false,
+            points: [],      // THREE.Vector3 world points
+            markers: [],     // sphere meshes in scene
+            line: null,      // THREE.Line object
+            modelUnit: 'm'   // unit of the model clicked
+        };
+
+        function toggleRuler() {
+            if (rulerState.active) {
+                cancelRuler();
+            } else {
+                if (!scene) { alert('העלה מודל תחילה'); return; }
+                rulerState.active = true;
+                rulerState.points = [];
+                clearRulerObjects();
+                document.getElementById('rulerBtn').style.background = '#8a5a5a';
+                document.getElementById('canvas-container').style.cursor = 'crosshair';
+                showRulerOverlay('📏 לחץ על נקודה ראשונה במודל');
+            }
+        }
+
+        function cancelRuler() {
+            rulerState.active = false;
+            clearRulerObjects();
+            document.getElementById('rulerBtn').style.background = '#5a5a8a';
+            document.getElementById('canvas-container').style.cursor = '';
+            document.getElementById('rulerOverlay').style.display = 'none';
+        }
+
+        function clearRulerObjects() {
+            rulerState.markers.forEach(m => scene && scene.remove(m));
+            rulerState.markers = [];
+            if (rulerState.line) { scene && scene.remove(rulerState.line); rulerState.line = null; }
+            rulerState.points = [];
+        }
+
+        function showRulerOverlay(text) {
+            const el = document.getElementById('rulerOverlay');
+            el.style.display = 'block';
+            el.textContent = text;
+        }
+
+        function pickRulerPoint(clientX, clientY) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            const mx = ((clientX - rect.left) / rect.width) * 2 - 1;
+            const my = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
+
+            // intersect all visible model meshes (excluding markers/sprites)
+            const allMeshes = [];
+            let hitUnit = 'm';
+            models.forEach(model => {
+                if (!model.visible) return;
+                const meshes = model.meshes || [];
+                meshes.forEach(mesh => {
+                    if (mesh.visible && !(mesh.userData && mesh.userData.label) && !mesh.isSprite) {
+                        allMeshes.push(mesh);
+                        // track which model this mesh belongs to for unit
+                        mesh._modelRef = model;
+                    }
+                });
+            });
+
+            const intersects = raycaster.intersectObjects(allMeshes, false);
+            if (intersects.length === 0) return;
+
+            const hit = intersects[0];
+            const point = hit.point.clone();
+            hitUnit = (hit.object._modelRef && hit.object._modelRef.unit) || 'm';
+
+            // add small sphere marker
+            const sphereGeo = new THREE.SphereGeometry(0.04, 8, 8);
+            const sphereMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, emissive: 0x444400, depthTest: false });
+            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+            sphere.position.copy(point);
+            scene.add(sphere);
+            rulerState.markers.push(sphere);
+            rulerState.points.push(point);
+
+            if (rulerState.points.length === 1) {
+                rulerState.modelUnit = hitUnit;
+                showRulerOverlay('📏 לחץ על נקודה שנייה');
+            } else if (rulerState.points.length === 2) {
+                // draw line
+                const lineGeo = new THREE.BufferGeometry().setFromPoints(rulerState.points);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, depthTest: false, linewidth: 2 });
+                rulerState.line = new THREE.Line(lineGeo, lineMat);
+                scene.add(rulerState.line);
+
+                // calculate distance in 3D scene units, then convert to real units
+                const distScene = rulerState.points[0].distanceTo(rulerState.points[1]);
+
+                // scene units are normalized to targetSize=4 for the original bounding box
+                // we need to back-convert: find the model that was hit and use its scale
+                const hitModel = allMeshes[0]?._modelRef;
+                let distReal = distScene;
+                let unitLabel = rulerState.modelUnit;
+
+                if (hitModel && hitModel.group) {
+                    // scale of group = targetSize / originalMaxDim  →  originalMaxDim / targetSize = 1/scale
+                    const sc = hitModel.group.scale.x; // uniform scale
+                    if (sc && sc !== 1) {
+                        // scene units / sc = original file units
+                        distReal = distScene / sc;
+                    }
+                }
+
+                // convert to readable value
+                const formatted = formatDistance(distReal, unitLabel);
+                showRulerOverlay(`📏 מרחק: ${formatted}   (לחץ 📏 לסגירה)`);
+
+                // keep active=false so user can rotate, but keep display
+                rulerState.active = false;
+                document.getElementById('rulerBtn').style.background = '#5a7a5a';
+                document.getElementById('canvas-container').style.cursor = '';
+            }
+        }
+
+        function formatDistance(val, unit) {
+            // convert to meters first, then display nicely
+            const toM = UNIT_TO_METERS[unit] || 1;
+            const meters = val * toM;
+
+            if (meters >= 1000) return (meters / 1000).toFixed(3) + ' km';
+            if (meters >= 1)    return meters.toFixed(4) + ' m';
+            if (meters >= 0.01) return (meters * 100).toFixed(3) + ' cm';
+            return (meters * 1000).toFixed(3) + ' mm';
+        }
         const UNIT_TO_METERS = { mm: 0.001, cm: 0.01, m: 1, inch: 0.0254, ft: 0.3048 };
         let pendingFiles = [];
         let pendingColors = [];
