@@ -2075,7 +2075,7 @@
                 });
             });
 
-            const intersects = raycaster.intersectObjects(allMeshes, false);
+            const intersects = raycaster.intersectObjects(allMeshes, true);
             if (intersects.length === 0) return;
             addAnchorPoint(intersects[0].point);
         }
@@ -2083,133 +2083,227 @@
         // ===== יישור אוטומטי למודל חדש =====
 
         /**
+         * דגימת נקודות שטח מהמודל — מחזיר מערך THREE.Vector3 בקואורדינטות עולם
+         */
+        function sampleModelPoints(model, maxPoints) {
+            const points = [];
+            model.group.updateMatrixWorld(true);
+            const meshes = model.meshes || [];
+            const perMesh = Math.ceil(maxPoints / (meshes.length || 1));
+            for (const mesh of meshes) {
+                mesh.updateMatrixWorld(true);
+                const geom = mesh.geometry;
+                if (!geom || !geom.attributes.position) continue;
+                const pos = geom.attributes.position;
+                const mat = mesh.matrixWorld;
+                const step = Math.max(1, Math.floor(pos.count / perMesh));
+                for (let i = 0; i < pos.count && points.length < maxPoints; i += step) {
+                    const v = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(mat);
+                    points.push(v);
+                }
+            }
+            return points;
+        }
+
+        /**
+         * צעד אחד של ICP — מוצא התאמות קרובות, מחשב טרנספורם (Kabsch + scale), מיישם
+         * מחזיר שגיאה ממוצעת
+         */
+        function icpStep(newModel, targetCloud) {
+            const sourceCloud = sampleModelPoints(newModel, 400);
+            if (sourceCloud.length < 3) return Infinity;
+
+            // לכל נקודת מקור — מצא הנקודה הקרובה ביותר ב-target
+            const pairs = sourceCloud.map(sp => {
+                let bestDistSq = Infinity, bestPt = null;
+                for (const tp of targetCloud) {
+                    const d = sp.distanceToSquared(tp);
+                    if (d < bestDistSq) { bestDistSq = d; bestPt = tp; }
+                }
+                return { src: sp, tgt: bestPt, dist: Math.sqrt(bestDistSq) };
+            });
+
+            // פילטר outliers — שמור 75% קרובים ביותר
+            pairs.sort((a, b) => a.dist - b.dist);
+            const keep = pairs.slice(0, Math.max(4, Math.floor(pairs.length * 0.75)));
+
+            // מרכזי כובד
+            const srcC = new THREE.Vector3(), tgtC = new THREE.Vector3();
+            keep.forEach(p => { srcC.add(p.src); tgtC.add(p.tgt); });
+            srcC.divideScalar(keep.length); tgtC.divideScalar(keep.length);
+
+            const srcCen = keep.map(p => p.src.clone().sub(srcC));
+            const tgtCen = keep.map(p => p.tgt.clone().sub(tgtC));
+
+            // Kabsch rotation
+            const rotation = kabschRotation(srcCen, tgtCen);
+
+            // חישוב scale (Umeyama)
+            let ss = 0, ts = 0;
+            srcCen.forEach(v => ss += v.lengthSq());
+            tgtCen.forEach(v => ts += v.lengthSq());
+            const scaleFactor = ss > 1e-12 ? Math.sqrt(ts / ss) : 1;
+
+            // החל טרנספורם בחיסרה עולמית על ה-group
+            // new_world = scaleFactor * R * old_world + t
+            // עבור ה-group: newQuat = R * currentQuat, newScale *= scaleFactor
+            // newPos = scaleFactor * R * currentPos + t  (כאשר t = tgtC - scaleFactor*R*srcC)
+            const newQuat = rotation.clone().multiply(newModel.group.quaternion);
+            const rotatedSrcC = srcC.clone().applyQuaternion(rotation).multiplyScalar(scaleFactor);
+            const translation = tgtC.clone().sub(rotatedSrcC);
+            const newPos = newModel.group.position.clone().applyQuaternion(rotation)
+                            .multiplyScalar(scaleFactor).add(translation);
+            const newScale = newModel.group.scale.clone().multiplyScalar(scaleFactor);
+
+            newModel.group.position.copy(newPos);
+            newModel.group.quaternion.copy(newQuat);
+            newModel.group.scale.copy(newScale);
+            newModel.group.updateMatrixWorld(true);
+
+            return keep.reduce((s, p) => s + p.dist, 0) / keep.length;
+        }
+
+        /**
          * מוצא את הנקודה הקרובה ביותר על מודל נתון לנקודת עולם מסוימת
-         * על ידי חיפוש בכל vertex-ים של הגיאומטריה
+         * (לשימוש לחישוב שגיאה, אחרי יישור ICP)
          */
         function findClosestPointOnModel(model, worldPoint) {
             let best = null;
             let bestDist = Infinity;
-
-            const localQuery = worldPoint.clone().applyMatrix4(model.group.matrixWorld.clone().invert());
-
+            model.group.updateMatrixWorld(true);
             (model.meshes || []).forEach(mesh => {
+                mesh.updateMatrixWorld(true);
                 const geom = mesh.geometry;
                 if (!geom || !geom.attributes.position) return;
                 const pos = geom.attributes.position;
+                const mat = mesh.matrixWorld;
                 const v = new THREE.Vector3();
-                for (let i = 0; i < pos.count; i++) {
-                    v.fromBufferAttribute(pos, i);
-                    const d = v.distanceTo(localQuery);
+                const step = Math.max(1, Math.floor(pos.count / 3000));
+                for (let i = 0; i < pos.count; i += step) {
+                    v.fromBufferAttribute(pos, i).applyMatrix4(mat);
+                    const d = v.distanceTo(worldPoint);
                     if (d < bestDist) {
                         bestDist = d;
                         best = v.clone();
                     }
                 }
             });
-
-            if (!best) return null;
-            // המר חזרה לעולם
-            return best.applyMatrix4(model.group.matrixWorld);
+            return best; // THREE.Vector3 בקואורדינטות עולם, או null
         }
 
         /**
-         * יישור אוטומטי של מודל חדש לנקודות הקבועות.
-         * מחפש את הנקודות הקרובות ביותר על המודל החדש,
-         * מריץ את אלגוריתם Kabsch, ובודק שגיאה.
-         * מחזיר { success, avgError } 
+         * יישור אוטומטי של מודל חדש לנקודות קבועות באמצעות ICP אמיתי.
+         * מנסה 8 כיוונים התחלתיים, בוחר את הטוב ביותר, ומוודא בעזרת נקודות העגינה.
          */
         async function autoAlignNewModel(newModel) {
             if (!document.getElementById('anchorAutoAlign').checked) return { success: false, reason: 'disabled' };
             const anchors = anchorState.points;
             if (anchors.length < 2) return { success: false, reason: 'noAnchors' };
 
-            // הצג הודעה
             const loadingMsg = document.getElementById('loadingMessage');
             loadingMsg.classList.remove('hidden');
-            loadingMsg.textContent = 'מחפש נקודות יישור על המודל החדש...';
+            loadingMsg.textContent = 'מכין יישור ICP...';
+            await new Promise(r => setTimeout(r, 20));
 
-            await new Promise(r => setTimeout(r, 30)); // נתן ל-DOM להתעדכן
+            // מצא מודל בסיס (הראשון שאינו המודל החדש)
+            const baseModel = models.find(m => m.id !== newModel.id);
+            if (!baseModel) { loadingMsg.classList.add('hidden'); return { success: false, reason: 'noBase' }; }
 
-            // מצא נקודות קרובות על המודל החדש לכל נקודה קבועה
-            const newModelPoints = anchors.map(anchor => findClosestPointOnModel(newModel, anchor));
+            // דגום ענן נקודות צפוף ממודל הבסיס (TARGET)
+            const targetCloud = sampleModelPoints(baseModel, 1500);
+            if (targetCloud.length < 10) { loadingMsg.classList.add('hidden'); return { success: false, reason: 'noPoints' }; }
 
-            // בדוק שכל הנקודות נמצאו
-            if (newModelPoints.some(p => p === null)) {
-                loadingMsg.classList.add('hidden');
-                return { success: false, reason: 'notFound' };
+            // שמור transform מקורי
+            const origPos   = newModel.group.position.clone();
+            const origQuat  = newModel.group.quaternion.clone();
+            const origScale = newModel.group.scale.clone();
+
+            // חשב מרכז ב"בסיס" להזזה ראשונית
+            const baseBB = new THREE.Box3().setFromObject(baseModel.group);
+            const baseCenter = new THREE.Vector3(); baseBB.getCenter(baseCenter);
+
+            // 8 כיוונים התחלתיים — סיבובי 90° סביב הצירים
+            const candidateEulers = [
+                [0, 0, 0],
+                [Math.PI, 0, 0],
+                [0, Math.PI, 0],
+                [0, 0, Math.PI],
+                [Math.PI / 2, 0, 0],
+                [-Math.PI / 2, 0, 0],
+                [0, Math.PI / 2, 0],
+                [0, -Math.PI / 2, 0],
+            ];
+
+            let bestError = Infinity;
+            let bestPos   = origPos.clone();
+            let bestQuat  = origQuat.clone();
+            let bestScale = origScale.clone();
+
+            for (let ci = 0; ci < candidateEulers.length; ci++) {
+                loadingMsg.textContent = `מריץ ICP (כיוון ${ci + 1}/${candidateEulers.length})...`;
+                await new Promise(r => setTimeout(r, 0)); // yield ל-UI
+
+                // אפס ל-transform מקורי
+                newModel.group.position.copy(origPos);
+                newModel.group.quaternion.copy(origQuat);
+                newModel.group.scale.copy(origScale);
+                newModel.group.updateMatrixWorld(true);
+
+                // החל סיבוב מועמד
+                const [ex, ey, ez] = candidateEulers[ci];
+                const candidateQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(ex, ey, ez));
+                newModel.group.quaternion.premultiply(candidateQuat);
+                newModel.group.updateMatrixWorld(true);
+
+                // הזז מרכז המודל החדש למרכז מודל הבסיס (אתחול ICP)
+                const newBB = new THREE.Box3().setFromObject(newModel.group);
+                const newCenter = new THREE.Vector3(); newBB.getCenter(newCenter);
+                newModel.group.position.add(baseCenter.clone().sub(newCenter));
+                newModel.group.updateMatrixWorld(true);
+
+                // הרץ 35 איטרציות ICP
+                let prevErr = Infinity;
+                for (let iter = 0; iter < 35; iter++) {
+                    const err = icpStep(newModel, targetCloud);
+                    if (Math.abs(prevErr - err) < 1e-6) break;
+                    prevErr = err;
+                }
+
+                // בדוק שגיאה מול נקודות העגינה (anchor)
+                let anchorError = 0;
+                for (const anchor of anchors) {
+                    const closest = findClosestPointOnModel(newModel, anchor);
+                    if (closest) anchorError += closest.distanceTo(anchor);
+                }
+                anchorError /= anchors.length;
+
+                if (anchorError < bestError) {
+                    bestError = anchorError;
+                    bestPos   = newModel.group.position.clone();
+                    bestQuat  = newModel.group.quaternion.clone();
+                    bestScale = newModel.group.scale.clone();
+                }
             }
 
-            const n = anchors.length;
-
-            // מרחב מקומי של המודל החדש
-            const worldToLocalNew = newModel.group.matrixWorld.clone().invert();
-            const sourceLocal = newModelPoints.map(p => p.clone().applyMatrix4(worldToLocalNew));
-
-            // מרכזים
-            const targetCenter = new THREE.Vector3();
-            const sourceCenter = new THREE.Vector3();
-            anchors.forEach(p => targetCenter.add(p));
-            sourceLocal.forEach(p => sourceCenter.add(p));
-            targetCenter.divideScalar(n);
-            sourceCenter.divideScalar(n);
-
-            const targetCentered = anchors.map(p => p.clone().sub(targetCenter));
-            const sourceCentered = sourceLocal.map(p => p.clone().sub(sourceCenter));
-
-            // חישוב rotation (Kabsch)
-            const rotation = kabschRotation(sourceCentered, targetCentered);
-
-            // חישוב סקייל
-            let ss = 0, ts = 0;
-            for (let i = 0; i < n; i++) {
-                ss += sourceCentered[i].lengthSq();
-                ts += targetCentered[i].lengthSq();
-            }
-            const scale = ss > 0 ? Math.sqrt(ts / ss) : 1;
-
-            // יישום
-            newModel.group.scale.set(scale, scale, scale);
-            const euler = new THREE.Euler().setFromQuaternion(rotation);
-            newModel.group.rotation.copy(euler);
+            // החל את הטרנספורם הטוב ביותר
+            newModel.group.position.copy(bestPos);
+            newModel.group.quaternion.copy(bestQuat);
+            newModel.group.scale.copy(bestScale);
             newModel.group.updateMatrixWorld(true);
-
-            // הזזה
-            const transformedSourceCenter = sourceCenter.clone()
-                .multiplyScalar(scale)
-                .applyQuaternion(rotation);
-            const translation = targetCenter.clone().sub(transformedSourceCenter);
-            newModel.group.position.copy(translation);
-            newModel.group.updateMatrixWorld(true);
-
-            // חישוב שגיאה ממוצעת
-            let totalError = 0;
-            for (let i = 0; i < n; i++) {
-                const transformed = sourceLocal[i].clone()
-                    .multiplyScalar(scale)
-                    .applyQuaternion(rotation)
-                    .add(translation);
-                totalError += transformed.distanceTo(anchors[i]);
-            }
-            const avgError = totalError / n;
-
-            const threshold = parseFloat(document.getElementById('anchorThreshold').value) || 0.5;
 
             loadingMsg.classList.add('hidden');
 
-            if (avgError > threshold) {
-                // ביטול — שגיאה גדולה מדי, שחזר מצב מקורי
-                newModel.group.position.set(0, 0, 0);
-                newModel.group.rotation.set(0, 0, 0);
-                const origScale = 4 / Math.max(...['x','y','z'].map(a => {
-                    const b = new THREE.Box3().setFromObject(newModel.group);
-                    const s = new THREE.Vector3(); b.getSize(s);
-                    return Math.max(s.x, s.y, s.z);
-                }));
-                // don't mess with scale, just report
-                return { success: false, reason: 'errorTooLarge', avgError, threshold };
+            const threshold = parseFloat(document.getElementById('anchorThreshold').value) || 0.5;
+            if (bestError > threshold) {
+                // שגיאה גדולה — שחזר מקורי
+                newModel.group.position.copy(origPos);
+                newModel.group.quaternion.copy(origQuat);
+                newModel.group.scale.copy(origScale);
+                newModel.group.updateMatrixWorld(true);
+                return { success: false, reason: 'errorTooLarge', avgError: bestError, threshold };
             }
 
-            return { success: true, avgError };
+            return { success: true, avgError: bestError };
         }
 
         /**
