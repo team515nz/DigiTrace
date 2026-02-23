@@ -355,6 +355,9 @@
                 updateCameraPosition();
                 
                 previousMousePosition = { x: e.clientX, y: e.clientY };
+
+                clearTimeout(window._camSaveTimer);
+                window._camSaveTimer = setTimeout(saveSession, 1000);
             });
 
             container.addEventListener('mouseup', () => {
@@ -857,6 +860,7 @@
                 };
 
                 models.push(modelData);
+                restoreModelTransform(modelData);
                 updateModelList();
                 calculateGlobalBoundingBox();
                 
@@ -928,6 +932,7 @@
                 calculateGlobalBoundingBox();
                 applyCuts();
                 updateModelList();
+                saveSession();
             }
         }
 
@@ -937,6 +942,7 @@
                 model.group.rotation.y += Math.PI / 2;
                 calculateGlobalBoundingBox();
                 applyCuts();
+                saveSession();
             }
         }
 
@@ -946,6 +952,7 @@
                 model.group.rotation.z += Math.PI / 2;
                 calculateGlobalBoundingBox();
                 applyCuts();
+                saveSession();
             }
         }
 
@@ -955,6 +962,7 @@
                 model.group.rotation.x += Math.PI / 2;
                 calculateGlobalBoundingBox();
                 applyCuts();
+                saveSession();
             }
         }
 
@@ -977,6 +985,7 @@
                 calculateGlobalBoundingBox();
                 applyCuts();
                 updateModelList();
+                saveSession();
             }
         }
 
@@ -1344,18 +1353,21 @@
             const value = e.target.value;
             document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${value}%`;
             applyCuts();
+            saveSession();
         });
 
         document.getElementById('cutX').addEventListener('input', (e) => {
             const value = e.target.value;
             document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${value}%`;
             applyCuts();
+            saveSession();
         });
 
         document.getElementById('cutZ').addEventListener('input', (e) => {
             const value = e.target.value;
             document.getElementById('cutZValue').textContent = `חיתוך עומק: ${value}%`;
             applyCuts();
+            saveSession();
         });
 
         document.getElementById('cutYFS').addEventListener('input', (e) => {
@@ -2581,9 +2593,135 @@
                 await new Promise(r => setTimeout(r, 300));
             }
         }
+        // ===== שמירה ב-localStorage =====
+        const STORAGE_KEY = 'digitrace_session';
 
-</script>
-    <script src="translations.js"></script>
+        function saveSession() {
+            try {
+                const session = {
+                    camera: {
+                        horizontal: cameraRotation.horizontal,
+                        vertical: cameraRotation.vertical,
+                        distance: cameraDistance
+                    },
+                    sliders: {
+                        cutY: document.getElementById('cutY').value,
+                        cutX: document.getElementById('cutX').value,
+                        cutZ: document.getElementById('cutZ').value
+                    },
+                    exportFormat: document.getElementById('exportFormat').value,
+                    models: models.map(m => ({
+                        id: m.id,
+                        name: m.name,
+                        date: m.date,
+                        unit: m.unit || 'm',
+                        color: m.color,
+                        visible: m.visible,
+                        position: { x: m.group.position.x, y: m.group.position.y, z: m.group.position.z },
+                        rotation: { x: m.group.rotation.x, y: m.group.rotation.y, z: m.group.rotation.z },
+                        scale:    { x: m.group.scale.x,    y: m.group.scale.y,    z: m.group.scale.z }
+                    }))
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+
+                // cookies — שומר רק מידע קל (לא geometry)
+                const cookieData = {
+                    cutY: session.sliders.cutY,
+                    cutX: session.sliders.cutX,
+                    cutZ: session.sliders.cutZ,
+                    camH: Math.round(cameraRotation.horizontal),
+                    camV: Math.round(cameraRotation.vertical),
+                    camD: cameraDistance.toFixed(2),
+                    fmt: session.exportFormat
+                };
+                const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+                document.cookie = `digitrace=${encodeURIComponent(JSON.stringify(cookieData))};expires=${expires};path=/;SameSite=Lax`;
+            } catch(e) {
+                console.warn('saveSession error:', e);
+            }
+        }
+
+        function loadSession() {
+            try {
+                // נסה localStorage קודם (יש בו יותר נתונים)
+                let session = null;
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) session = JSON.parse(raw);
+
+                // fallback לcookies
+                if (!session) {
+                    const match = document.cookie.match(/digitrace=([^;]+)/);
+                    if (match) session = JSON.parse(decodeURIComponent(match[1]));
+                }
+
+                if (!session) return;
+
+                // מצלמה
+                if (session.camera) {
+                    cameraRotation.horizontal = session.camera.horizontal ?? 45;
+                    cameraRotation.vertical   = session.camera.vertical   ?? 30;
+                    cameraDistance            = session.camera.distance   ?? 8;
+                } else if (session.camH !== undefined) {
+                    cameraRotation.horizontal = parseFloat(session.camH);
+                    cameraRotation.vertical   = parseFloat(session.camV);
+                    cameraDistance            = parseFloat(session.camD);
+                }
+
+                // סליידרים
+                const sliders = session.sliders || session;
+                if (sliders.cutY !== undefined) {
+                    ['cutY','cutX','cutZ'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && sliders[id] !== undefined) el.value = sliders[id];
+                    });
+                    document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${sliders.cutY}%`;
+                    document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${sliders.cutX}%`;
+                    document.getElementById('cutZValue').textContent = `חיתוך עומק: ${sliders.cutZ}%`;
+                }
+
+                // פורמט ייצוא
+                const fmt = session.exportFormat || session.fmt;
+                if (fmt) document.getElementById('exportFormat').value = fmt;
+
+                // שמור מטאדטה של מודלים לשחזור אחרי העלאה
+                if (session.models && session.models.length > 0) {
+                    window._savedModelMeta = {};
+                    session.models.forEach(m => {
+                        window._savedModelMeta[m.name] = m;
+                    });
+                }
+
+            } catch(e) {
+                console.warn('loadSession error:', e);
+            }
+        }
+
+        // שחזור transform של מודל אחרי טעינה (לפי שם)
+        function restoreModelTransform(modelData) {
+            const meta = window._savedModelMeta && window._savedModelMeta[modelData.name];
+            if (!meta) return;
+            modelData.group.position.set(meta.position.x, meta.position.y, meta.position.z);
+            modelData.group.rotation.set(meta.rotation.x, meta.rotation.y, meta.rotation.z);
+            modelData.group.scale.set(meta.scale.x, meta.scale.y, meta.scale.z);
+            modelData.visible = meta.visible;
+            modelData.group.visible = meta.visible;
+            if (meta.unit) modelData.unit = meta.unit;
+        }
+
+        // שמור אוטומטית כל 5 שניות + על כל שינוי משמעותי
+        setInterval(saveSession, 5000);
+        window.addEventListener('beforeunload', saveSession);
+
+        // טען בעת אתחול
+        window.addEventListener('load', () => {
+            loadSession();
+            if (scene) {
+                updateCameraPosition();
+                applyCuts();
+            }
+        });
+
+
     <script>
     (function(){
       const langSelect = document.getElementById('langSelect');
