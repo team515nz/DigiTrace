@@ -87,8 +87,10 @@
 
             <div class="main-content">
                 <div class="controls">
-                    <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
-                    
+                    <div class="controls-btns">
+                        <button class="fullscreen-btn" id="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;">📏 סרגל</button>
+                        <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
+                    </div>
                     <div class="control-group">
                         <label>
                             <span class="value-display" id="cutYValue" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
@@ -117,6 +119,7 @@
                 <button class="close-fullscreen" data-i18n="closeFullscreen" onclick="toggleFullscreen()">✕ סגור מסך מלא</button>
                 
                 <div class="fullscreen-controls" id="fullscreenControls">
+                    <button class="fullscreen-btn" id="rulerBtnFS" onclick="toggleRuler()" style="background:#5a5a8a;margin-bottom:8px;width:100%;">📏 סרגל</button>
                     <div class="control-group">
                         <label>
                             <span class="value-display" id="cutYValueFS" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
@@ -153,6 +156,8 @@
                                 <strong>יישור גמיש: בחר כמה נקודות שתרצה!</strong>
                             </div>
                         </div>
+                        <!-- ruler overlay -->
+                        <div id="rulerOverlay" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.9em;pointer-events:none;z-index:10;white-space:nowrap;"></div>
                     </div>
                 </div>
             </div>
@@ -166,6 +171,36 @@
         <span class="modal-close" onclick="toggleHelp()">&times;</span>
         <div class="modal-body" id="helpContent">
             <div class="loading-help">טוען את מדריך העזרה...</div>
+        </div>
+    </div>
+</div>
+
+<!-- מודל יחידות מידה -->
+<div id="unitsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:28px 32px;max-width:480px;width:90%;color:#eee;font-family:inherit;direction:rtl;">
+        <h3 style="margin:0 0 8px;font-size:1.1em;">📐 יחידות מידה</h3>
+        <p id="unitsModalDesc" style="margin:0 0 18px;font-size:0.88em;color:#aaa;line-height:1.5;"></p>
+
+        <div style="margin-bottom:16px;">
+            <label style="font-size:0.9em;display:block;margin-bottom:6px;">יחידת מידה לכל המודלים החדשים:</label>
+            <select id="unitsGlobalSelect" style="width:100%;padding:8px;border-radius:6px;background:#2a2a3e;color:#eee;border:1px solid #555;font-size:0.95em;">
+                <option value="mm">מילימטר (mm)</option>
+                <option value="cm">סנטימטר (cm)</option>
+                <option value="m" selected>מטר (m)</option>
+                <option value="inch">אינץ' (inch)</option>
+                <option value="ft">רגל (ft)</option>
+            </select>
+        </div>
+
+        <div id="unitsPerModelSection" style="display:none;margin-bottom:16px;">
+            <div style="background:#ff9800;color:#000;padding:8px 12px;border-radius:6px;font-size:0.85em;margin-bottom:12px;">
+                ⚠️ נזהה הבדל גדול בגודל בין המודלים — ייתכן שיש להם יחידות שונות. תוכל להגדיר לכל אחד בנפרד:
+            </div>
+            <div id="unitsPerModelList"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+            <button onclick="confirmUnits()" style="padding:8px 22px;border-radius:6px;background:#4a9;border:none;color:#fff;cursor:pointer;font-size:0.95em;">אישור</button>
         </div>
     </div>
 </div>
@@ -279,6 +314,12 @@
             const container = document.getElementById('canvas-container');
             
             container.addEventListener('mousedown', (e) => {
+                // ruler mode
+                if (rulerState.active) {
+                    pickRulerPoint(e.clientX, e.clientY);
+                    return;
+                }
+
                 if (alignState.active && alignState.selectingModel !== null) {
                     const rect = container.getBoundingClientRect();
                     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -316,6 +357,9 @@
                 updateCameraPosition();
                 
                 previousMousePosition = { x: e.clientX, y: e.clientY };
+
+                clearTimeout(window._camSaveTimer);
+                window._camSaveTimer = setTimeout(saveSession, 1000);
             });
 
             container.addEventListener('mouseup', () => {
@@ -351,8 +395,10 @@
                 reader.onload = function(e) {
                     const text = e.target.result;
                     try {
+                        const isAligned = text.startsWith('# DIGIALIGNED');
                         const geometry = parseOBJ(text);
                         if (geometry && geometry.attributes.position.count > 0) {
+                            geometry.userData = { isAligned };
                             resolve([geometry]);
                         } else {
                             reject(new Error('הקובץ ריק או לא תקין'));
@@ -436,8 +482,13 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     try {
+                        // בדוק אם ה-header מכיל את ה-magic string
+                        const headerBytes = new Uint8Array(e.target.result, 0, 80);
+                        const headerText = new TextDecoder().decode(headerBytes);
+                        const isAligned = headerText.includes('DIGIALIGNED');
                         const geometry = parseSTL(e.target.result);
                         if (geometry) {
+                            geometry.userData = { isAligned };
                             resolve([geometry]);
                         } else {
                             reject(new Error('Failed to parse STL'));
@@ -735,7 +786,7 @@
             });
         }
 
-        async function addModelFromFile(file, color) {
+        async function addModelFromFile(file, color, unit = 'm') {
             try {
                 let geometries;
                 const extension = file.name.split('.').pop().toLowerCase();
@@ -755,7 +806,7 @@
                 }
 
                 const mainGroup = new THREE.Group();
-                const isAligned = file.name.startsWith('aligned_');
+                const isAligned = geometries.some(g => g.userData && g.userData.isAligned);
 
                 geometries.forEach((geometry, index) => {
                     if (!geometry || !geometry.attributes.position) {
@@ -806,10 +857,13 @@
                     meshes: mainGroup.children,
                     visible: true,
                     originalGeometries: mainGroup.children.map(mesh => mesh.geometry.clone()),
-                    color: color
+                    color: color,
+                    unit: unit
                 };
 
                 models.push(modelData);
+                restoreModelTransform(modelData);
+                saveModelToIDB(modelData);
                 updateModelList();
                 calculateGlobalBoundingBox();
                 
@@ -853,7 +907,7 @@
                             <div class="color-indicator" style="background-color: ${colorInfo.hex}"></div>
                             <div class="flex-grow">
                                 ${model.name}
-                                <div class="color-name"><span data-i18n="colorLabel">צבע</span>: ${colorInfo.name}</div>
+                                <div class="color-name"><span data-i18n="colorLabel">צבע</span>: ${colorInfo.name} &nbsp;|&nbsp; 📐 ${model.unit || '?'}</div>
                             </div>
                         </div>
                         <div class="model-date">${model.date}</div>
@@ -881,6 +935,7 @@
                 calculateGlobalBoundingBox();
                 applyCuts();
                 updateModelList();
+                saveSession();
             }
         }
 
@@ -890,6 +945,7 @@
                 model.group.rotation.y += Math.PI / 2;
                 calculateGlobalBoundingBox();
                 applyCuts();
+                saveSession();
             }
         }
 
@@ -899,6 +955,7 @@
                 model.group.rotation.z += Math.PI / 2;
                 calculateGlobalBoundingBox();
                 applyCuts();
+                saveSession();
             }
         }
 
@@ -908,6 +965,7 @@
                 model.group.rotation.x += Math.PI / 2;
                 calculateGlobalBoundingBox();
                 applyCuts();
+                saveSession();
             }
         }
 
@@ -915,6 +973,7 @@
             const index = models.findIndex(m => m.id === id);
             if (index !== -1) {
                 const removedModelId = models[index].id;
+                const removedName = models[index].name;
                 scene.remove(models[index].group);
                 models.splice(index, 1);
 
@@ -930,6 +989,8 @@
                 calculateGlobalBoundingBox();
                 applyCuts();
                 updateModelList();
+                saveSession();
+                idbDelete(removedName).catch(()=>{});
             }
         }
 
@@ -1035,52 +1096,293 @@
             });
         }
 
+        // ===== סרגל קנה מידה =====
+        let rulerState = {
+            active: false,
+            points: [],      // THREE.Vector3 world points
+            markers: [],     // sphere meshes in scene
+            line: null,      // THREE.Line object
+            modelUnit: 'm'   // unit of the model clicked
+        };
+
+        function setRulerBtnStyle(active, finished) {
+            const color = finished ? '#5a7a5a' : active ? '#8a5a5a' : '#5a5a8a';
+            ['rulerBtn','rulerBtnFS'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.background = color;
+            });
+        }
+
+        function toggleRuler() {
+            if (rulerState.active) {
+                cancelRuler();
+            } else {
+                if (!scene) { alert('העלה מודל תחילה'); return; }
+                rulerState.active = true;
+                rulerState.points = [];
+                clearRulerObjects();
+                setRulerBtnStyle(true, false);
+                document.getElementById('canvas-container').style.cursor = 'crosshair';
+                showRulerOverlay('📏 לחץ על נקודה ראשונה במודל');
+            }
+        }
+
+        function cancelRuler() {
+            rulerState.active = false;
+            clearRulerObjects();
+            setRulerBtnStyle(false, false);
+            document.getElementById('canvas-container').style.cursor = '';
+            document.getElementById('rulerOverlay').style.display = 'none';
+        }
+
+        function clearRulerObjects() {
+            rulerState.markers.forEach(m => scene && scene.remove(m));
+            rulerState.markers = [];
+            if (rulerState.line) { scene && scene.remove(rulerState.line); rulerState.line = null; }
+            rulerState.points = [];
+        }
+
+        function showRulerOverlay(text) {
+            const el = document.getElementById('rulerOverlay');
+            el.style.display = 'block';
+            el.textContent = text;
+        }
+
+        function pickRulerPoint(clientX, clientY) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            const mx = ((clientX - rect.left) / rect.width) * 2 - 1;
+            const my = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
+
+            // intersect all visible model meshes (excluding markers/sprites)
+            const allMeshes = [];
+            let hitUnit = 'm';
+            models.forEach(model => {
+                if (!model.visible) return;
+                const meshes = model.meshes || [];
+                meshes.forEach(mesh => {
+                    if (mesh.visible && !(mesh.userData && mesh.userData.label) && !mesh.isSprite) {
+                        allMeshes.push(mesh);
+                        // track which model this mesh belongs to for unit
+                        mesh._modelRef = model;
+                    }
+                });
+            });
+
+            const intersects = raycaster.intersectObjects(allMeshes, false);
+            if (intersects.length === 0) return;
+
+            const hit = intersects[0];
+            const point = hit.point.clone();
+            hitUnit = (hit.object._modelRef && hit.object._modelRef.unit) || 'm';
+
+            // add small sphere marker — rendered on top of everything
+            const sphereGeo = new THREE.SphereGeometry(0.05, 8, 8);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false });
+            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+            sphere.position.copy(point);
+            sphere.renderOrder = 999;
+            scene.add(sphere);
+            rulerState.markers.push(sphere);
+            rulerState.points.push(point);
+
+            if (rulerState.points.length === 1) {
+                rulerState.modelUnit = hitUnit;
+                showRulerOverlay('📏 לחץ על נקודה שנייה');
+            } else if (rulerState.points.length === 2) {
+                // draw line — rendered on top of everything
+                const lineGeo = new THREE.BufferGeometry().setFromPoints(rulerState.points);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, depthTest: false });
+                rulerState.line = new THREE.Line(lineGeo, lineMat);
+                rulerState.line.renderOrder = 999;
+                scene.add(rulerState.line);
+
+                // calculate distance in 3D scene units, then convert to real units
+                const distScene = rulerState.points[0].distanceTo(rulerState.points[1]);
+
+                // scene units are normalized to targetSize=4 for the original bounding box
+                // we need to back-convert: find the model that was hit and use its scale
+                const hitModel = allMeshes[0]?._modelRef;
+                let distReal = distScene;
+                let unitLabel = rulerState.modelUnit;
+
+                if (hitModel && hitModel.group) {
+                    // scale of group = targetSize / originalMaxDim  →  originalMaxDim / targetSize = 1/scale
+                    const sc = hitModel.group.scale.x; // uniform scale
+                    if (sc && sc !== 1) {
+                        // scene units / sc = original file units
+                        distReal = distScene / sc;
+                    }
+                }
+
+                // convert to readable value
+                const formatted = formatDistance(distReal, unitLabel);
+                showRulerOverlay(`📏 מרחק: ${formatted}   (לחץ 📏 לסגירה)`);
+
+                // keep active=false so user can rotate, but keep display
+                rulerState.active = false;
+                setRulerBtnStyle(false, true);
+                document.getElementById('canvas-container').style.cursor = '';
+            }
+        }
+
+        function formatDistance(val, unit) {
+            // convert to meters first, then display nicely
+            const toM = UNIT_TO_METERS[unit] || 1;
+            const meters = val * toM;
+
+            if (meters >= 1000) return (meters / 1000).toFixed(3) + ' km';
+            if (meters >= 1)    return meters.toFixed(4) + ' m';
+            if (meters >= 0.01) return (meters * 100).toFixed(3) + ' cm';
+            return (meters * 1000).toFixed(3) + ' mm';
+        }
+        const UNIT_TO_METERS = { mm: 0.001, cm: 0.01, m: 1, inch: 0.0254, ft: 0.3048 };
+        let pendingFiles = [];
+        let pendingColors = [];
+
         document.getElementById('fileInput').addEventListener('change', async (e) => {
-            const files = e.target.files;
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            if (!scene) initThreeJS();
+            e.target.value = '';
+
+            const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
+            pendingFiles = files;
+            pendingColors = files.map((_, i) => colors[(models.length + i) % colors.length]);
+
+            // GLB/GLTF תמיד מטר — רק STL/OBJ שאינם aligned צריכים שאלה
+            const needsUnits = files.filter(f => {
+                const ext = f.name.split('.').pop().toLowerCase();
+                return (ext === 'stl' || ext === 'obj');
+            });
+
+            if (needsUnits.length === 0) {
+                // הכל GLB/GLTF — טען ישירות
+                await loadPendingFiles('m');
+                return;
+            }
+
+            // בנה תיאור
+            const glbCount = files.length - needsUnits.length;
+            let desc = `העלית ${files.length} קבצים.`;
+            if (glbCount > 0) desc += ` ${glbCount} קבצי GLB/GLTF יוגדרו אוטומטית כמטר.`;
+            desc += ` בחר יחידת מידה עבור ${needsUnits.map(f=>f.name).join(', ')}:`;
+            document.getElementById('unitsModalDesc').textContent = desc;
+
+            // הכן רשימת per-model (תוצג רק אם יש פער גדול)
+            const perList = document.getElementById('unitsPerModelList');
+            perList.innerHTML = '';
+            needsUnits.forEach(f => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px;';
+                row.innerHTML = `
+                    <span style="flex:1;font-size:0.85em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>
+                    <select data-filename="${f.name}" style="padding:5px;border-radius:5px;background:#2a2a3e;color:#eee;border:1px solid #555;font-size:0.85em;">
+                        <option value="mm">mm</option>
+                        <option value="cm">cm</option>
+                        <option value="m" selected>m</option>
+                        <option value="inch">inch</option>
+                        <option value="ft">ft</option>
+                    </select>`;
+                perList.appendChild(row);
+            });
+
+            // בדוק אם צריך להציג אזהרת פער גדול — על בסיס גודל קובץ כ-proxy גס
+            // (גודל אמיתי נבדק אחרי טעינה — כאן נציג תמיד האפשרות)
+            document.getElementById('unitsPerModelSection').style.display = needsUnits.length > 1 ? 'block' : 'none';
+
+            const modal = document.getElementById('unitsModal');
+            modal.style.display = 'flex';
+        });
+
+        async function confirmUnits() {
+            document.getElementById('unitsModal').style.display = 'none';
+            const globalUnit = document.getElementById('unitsGlobalSelect').value;
+
+            // בנה מפה: שם קובץ → יחידה
+            const perModelUnits = {};
+            document.querySelectorAll('#unitsPerModelList select').forEach(sel => {
+                perModelUnits[sel.dataset.filename] = sel.value;
+            });
+
+            await loadPendingFiles(globalUnit, perModelUnits);
+        }
+
+        async function loadPendingFiles(defaultUnit, perModelUnits = {}) {
             const uploadBox = document.getElementById('uploadBox');
             const loadingMsg = document.getElementById('loadingMessage');
-            
-            if (files.length === 0) return;
-            
-            if (!scene) initThreeJS();
-            
             uploadBox.classList.add('loading');
             loadingMsg.classList.remove('hidden');
-            loadingMsg.textContent = 'טוען מודלים...';
-            
-            const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
-            
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+
+            const loadedModels = [];
+            for (let i = 0; i < pendingFiles.length; i++) {
+                const file = pendingFiles[i];
+                const color = pendingColors[i];
+                const ext = file.name.split('.').pop().toLowerCase();
+
+                // GLB/GLTF = מטר תמיד
+                let unit;
+                if (ext === 'glb' || ext === 'gltf') {
+                    unit = 'm';
+                } else {
+                    unit = perModelUnits[file.name] || defaultUnit;
+                }
+
                 try {
                     loadingMsg.textContent = `טוען ${file.name}...`;
-                    await addModelFromFile(file, colors[models.length % colors.length]);
+                    const model = await addModelFromFile(file, color, unit);
+                    if (model) loadedModels.push({ model, unit });
                 } catch (error) {
                     alert(`שגיאה בטעינת ${file.name}: ${error.message}`);
                 }
             }
-            
+
             uploadBox.classList.remove('loading');
             loadingMsg.classList.add('hidden');
-            e.target.value = '';
-        });
+
+            // בדוק פערי גודל בין מודלים שנטענו עכשיו (ומודלים קיימים)
+            checkSizeDiscrepancy(loadedModels);
+        }
+
+        function checkSizeDiscrepancy(newlyLoaded) {
+            if (models.length < 2) return;
+            const sizes = models.map(m => {
+                const box = new THREE.Box3().setFromObject(m.group);
+                const s = new THREE.Vector3(); box.getSize(s);
+                return { id: m.id, name: m.name, size: Math.max(s.x, s.y, s.z), unit: m.unit };
+            });
+            const allSizes = sizes.map(s => s.size);
+            const median = allSizes.slice().sort((a,b)=>a-b)[Math.floor(allSizes.length/2)];
+            const outliers = sizes.filter(s => s.size > median * 9 || s.size < median / 9);
+            if (outliers.length > 0) {
+                const names = outliers.map(o => `"${o.name}"`).join(', ');
+                setTimeout(() => {
+                    alert(`⚠️ נמצא הבדל גדול בגודל:\n${names} ${outliers.length===1?'גדול/קטן':'גדולים/קטנים'} בצורה חריגה ביחס לשאר.\n\nייתכן שיחידות המידה שגויות. תוכל למחוק ולהעלות שוב עם יחידה אחרת.`);
+                }, 300);
+            }
+        }
 
         document.getElementById('cutY').addEventListener('input', (e) => {
             const value = e.target.value;
             document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${value}%`;
             applyCuts();
+            saveSession();
         });
 
         document.getElementById('cutX').addEventListener('input', (e) => {
             const value = e.target.value;
             document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${value}%`;
             applyCuts();
+            saveSession();
         });
 
         document.getElementById('cutZ').addEventListener('input', (e) => {
             const value = e.target.value;
             document.getElementById('cutZValue').textContent = `חיתוך עומק: ${value}%`;
             applyCuts();
+            saveSession();
         });
 
         document.getElementById('cutYFS').addEventListener('input', (e) => {
@@ -1713,8 +2015,8 @@
             const buffer = new ArrayBuffer(bufferLength);
             const view = new DataView(buffer);
 
-            // Header (80 bytes)
-            const header = 'Binary STL exported from Archaeological Site Viewer';
+            // Header (80 bytes) — כולל magic string לזיהוי קובץ מיושר
+            const header = 'DIGIALIGNED Binary STL exported from DigiTrace';
             for (let i = 0; i < 80; i++) {
                 view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
             }
@@ -1749,7 +2051,7 @@
             const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
             const indices = geometry.index ? geometry.index.array : null;
 
-            let obj = '# OBJ exported from Archaeological Site Viewer\n';
+            let obj = '# DIGIALIGNED\n# OBJ exported from DigiTrace\n';
             obj += '# Vertices: ' + (positions.length / 3) + '\n\n';
 
             // Vertices
@@ -2306,8 +2608,293 @@
                 await new Promise(r => setTimeout(r, 300));
             }
         }
+        // ===== שמירה מלאה - IndexedDB + localStorage + cookies =====
+        const STORAGE_KEY = 'digitrace_session';
+        const IDB_NAME = 'DigiTraceDB';
+        const IDB_STORE = 'models';
+        let _idb = null;
 
-</script>
+        function openIDB() {
+            return new Promise((resolve, reject) => {
+                if (_idb) return resolve(_idb);
+                const req = indexedDB.open(IDB_NAME, 1);
+                req.onupgradeneeded = e => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath: 'name' });
+                };
+                req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function idbPut(record) {
+            const db = await openIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                tx.objectStore(IDB_STORE).put(record);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function idbGetAll() {
+            const db = await openIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readonly');
+                const req = tx.objectStore(IDB_STORE).getAll();
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function idbClear() {
+            const db = await openIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                tx.objectStore(IDB_STORE).clear();
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function idbDelete(name) {
+            const db = await openIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                tx.objectStore(IDB_STORE).delete(name);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        // שמור geometry כ-ArrayBuffer ב-IndexedDB
+        function geometryToArrayBuffer(geometry) {
+            const positions = geometry.attributes.position.array;
+            const normals = geometry.attributes.normal ? geometry.attributes.normal.array : null;
+            const indices = geometry.index ? geometry.index.array : null;
+
+            const posLen = positions.length;
+            const normLen = normals ? normals.length : 0;
+            const idxLen = indices ? indices.length : 0;
+
+            // header: 3 ints (posLen, normLen, idxLen)
+            const header = new Int32Array([posLen, normLen, idxLen]);
+            const posBytes = new Float32Array(positions);
+            const normBytes = normals ? new Float32Array(normals) : new Float32Array(0);
+            const idxBytes = indices ? (idxLen > 65535 ? new Uint32Array(indices) : new Uint16Array(indices)) : new Uint16Array(0);
+            const idxIsU32 = indices && idxLen > 65535;
+            const flagArr = new Uint8Array([idxIsU32 ? 1 : 0]);
+
+            const totalBytes = 12 + 1 + posBytes.byteLength + normBytes.byteLength + idxBytes.byteLength;
+            const buf = new ArrayBuffer(totalBytes);
+            const view = new Uint8Array(buf);
+            let offset = 0;
+            view.set(new Uint8Array(header.buffer), offset); offset += 12;
+            view.set(flagArr, offset); offset += 1;
+            view.set(new Uint8Array(posBytes.buffer), offset); offset += posBytes.byteLength;
+            if (normBytes.byteLength) { view.set(new Uint8Array(normBytes.buffer), offset); offset += normBytes.byteLength; }
+            if (idxBytes.byteLength)  { view.set(new Uint8Array(idxBytes.buffer),  offset); }
+            return buf;
+        }
+
+        function arrayBufferToGeometry(buf) {
+            const headerView = new Int32Array(buf, 0, 3);
+            const [posLen, normLen, idxLen] = headerView;
+            const flag = new Uint8Array(buf, 12, 1)[0];
+            let offset = 13;
+
+            const positions = new Float32Array(buf, offset, posLen); offset += posLen * 4;
+            const normals = normLen > 0 ? new Float32Array(buf, offset, normLen) : null; if (normLen) offset += normLen * 4;
+            let indices = null;
+            if (idxLen > 0) {
+                indices = flag ? new Uint32Array(buf, offset, idxLen) : new Uint16Array(buf, offset, idxLen);
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3));
+            if (normals) geo.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(normals), 3));
+            if (indices) geo.setIndex(new THREE.BufferAttribute(flag ? new Uint32Array(indices) : new Uint16Array(indices), 1));
+            return geo;
+        }
+
+        // שמור מודל ב-IndexedDB
+        async function saveModelToIDB(model) {
+            try {
+                // שמור את ה-originalGeometries — לפני כל שינוי חיתוך
+                const geoBuffers = model.originalGeometries
+                    .filter(g => g && g.attributes && g.attributes.position)
+                    .map(g => geometryToArrayBuffer(g));
+                await idbPut({
+                    name: model.name,
+                    color: model.color,
+                    unit: model.unit || 'm',
+                    geoBuffers
+                });
+            } catch(e) {
+                console.warn('saveModelToIDB error:', e);
+            }
+        }
+
+        async function saveSession() {
+            try {
+                const session = {
+                    camera: { horizontal: cameraRotation.horizontal, vertical: cameraRotation.vertical, distance: cameraDistance },
+                    sliders: {
+                        cutY: document.getElementById('cutY').value,
+                        cutX: document.getElementById('cutX').value,
+                        cutZ: document.getElementById('cutZ').value
+                    },
+                    exportFormat: document.getElementById('exportFormat').value,
+                    models: models.map(m => ({
+                        name: m.name,
+                        date: m.date,
+                        unit: m.unit || 'm',
+                        color: m.color,
+                        visible: m.visible,
+                        position: { x: m.group.position.x, y: m.group.position.y, z: m.group.position.z },
+                        rotation: { x: m.group.rotation.x, y: m.group.rotation.y, z: m.group.rotation.z },
+                        scale:    { x: m.group.scale.x,    y: m.group.scale.y,    z: m.group.scale.z }
+                    }))
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+
+                // cookies — מידע קל בלבד
+                const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+                const mini = { cutY: session.sliders.cutY, cutX: session.sliders.cutX, cutZ: session.sliders.cutZ,
+                               camH: cameraRotation.horizontal.toFixed(1), camV: cameraRotation.vertical.toFixed(1),
+                               camD: cameraDistance.toFixed(2), fmt: session.exportFormat };
+                document.cookie = `digitrace=${encodeURIComponent(JSON.stringify(mini))};expires=${expires};path=/;SameSite=Lax`;
+            } catch(e) {
+                console.warn('saveSession error:', e);
+            }
+        }
+
+        async function restoreFullSession() {
+            try {
+                // שחזר הגדרות מ-localStorage
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const session = JSON.parse(raw);
+
+                // מצלמה
+                if (session.camera) {
+                    cameraRotation.horizontal = session.camera.horizontal ?? 45;
+                    cameraRotation.vertical   = session.camera.vertical   ?? 30;
+                    cameraDistance            = session.camera.distance   ?? 8;
+                }
+
+                // סליידרים
+                if (session.sliders) {
+                    ['cutY','cutX','cutZ'].forEach(id => {
+                        document.getElementById(id).value = session.sliders[id];
+                    });
+                    document.getElementById('cutYValue').textContent = `חיתוך אנכי: ${session.sliders.cutY}%`;
+                    document.getElementById('cutXValue').textContent = `חיתוך רוחב: ${session.sliders.cutX}%`;
+                    document.getElementById('cutZValue').textContent = `חיתוך עומק: ${session.sliders.cutZ}%`;
+                }
+
+                if (session.exportFormat) document.getElementById('exportFormat').value = session.exportFormat;
+
+                if (!session.models || session.models.length === 0) return true;
+
+                // שחזר geometry מ-IndexedDB
+                const idbRecords = await idbGetAll();
+                const idbMap = {};
+                idbRecords.forEach(r => idbMap[r.name] = r);
+
+                if (!scene) initThreeJS();
+
+                const colors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0xFFA07A, 0x98D8C8];
+                const loadingMsg = document.getElementById('loadingMessage');
+                loadingMsg.classList.remove('hidden');
+
+                for (const meta of session.models) {
+                    const idbRec = idbMap[meta.name];
+                    if (!idbRec) continue;
+
+                    loadingMsg.textContent = `משחזר ${meta.name}...`;
+
+                    try {
+                        const mainGroup = new THREE.Group();
+                        const color = meta.color || colors[models.length % colors.length];
+
+                        idbRec.geoBuffers.forEach(buf => {
+                            const geometry = arrayBufferToGeometry(buf);
+                            const material = new THREE.MeshStandardMaterial({
+                                color, transparent: true, opacity: 0.85,
+                                side: THREE.DoubleSide, flatShading: false
+                            });
+                            mainGroup.add(new THREE.Mesh(geometry, material));
+                        });
+
+                        if (mainGroup.children.length === 0) continue;
+
+                        // החל transform שמור
+                        mainGroup.position.set(meta.position.x, meta.position.y, meta.position.z);
+                        mainGroup.rotation.set(meta.rotation.x, meta.rotation.y, meta.rotation.z);
+                        mainGroup.scale.set(meta.scale.x, meta.scale.y, meta.scale.z);
+                        mainGroup.visible = meta.visible;
+
+                        scene.add(mainGroup);
+
+                        const modelData = {
+                            id: modelCounter++,
+                            name: meta.name,
+                            date: meta.date,
+                            group: mainGroup,
+                            meshes: mainGroup.children,
+                            visible: meta.visible,
+                            originalGeometries: mainGroup.children.map(m => m.geometry.clone()),
+                            color,
+                            unit: meta.unit || 'm'
+                        };
+
+                        models.push(modelData);
+                    } catch(e) {
+                        console.warn('restore model error:', meta.name, e);
+                    }
+                }
+
+                loadingMsg.classList.add('hidden');
+                updateModelList();
+                calculateGlobalBoundingBox();
+                updateCameraPosition();
+                applyCuts();
+                adjustCameraToModel();
+                return true;
+            } catch(e) {
+                console.warn('restoreFullSession error:', e);
+                return false;
+            }
+        }
+
+        // שחזור transform של מודל אחרי טעינה ידנית (לפי שם)
+        function restoreModelTransform(modelData) {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+            try {
+                const session = JSON.parse(raw);
+                const meta = session.models && session.models.find(m => m.name === modelData.name);
+                if (!meta) return;
+                modelData.group.position.set(meta.position.x, meta.position.y, meta.position.z);
+                modelData.group.rotation.set(meta.rotation.x, meta.rotation.y, meta.rotation.z);
+                modelData.group.scale.set(meta.scale.x, meta.scale.y, meta.scale.z);
+                modelData.visible = meta.visible;
+                modelData.group.visible = meta.visible;
+                if (meta.unit) modelData.unit = meta.unit;
+            } catch(e) {}
+        }
+
+        // שמור כל שנייה + על כל פעולה
+        setInterval(saveSession, 1000);
+        window.addEventListener('beforeunload', saveSession);
+
+        // שחזר בטעינה
+        window.addEventListener('load', async () => {
+            await restoreFullSession();
+        });
+
+    </script>
     <script src="translations.js"></script>
     <script>
     (function(){
