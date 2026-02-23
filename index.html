@@ -87,9 +87,10 @@
 
             <div class="main-content">
                 <div class="controls">
-                    <button class="fullscreen-btn" id="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;">📏 סרגל</button>
-                    <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
-                    
+                    <div class="controls-btns">
+                        <button class="fullscreen-btn" id="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;">📏 סרגל</button>
+                        <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
+                    </div>
                     <div class="control-group">
                         <label>
                             <span class="value-display" id="cutYValue" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
@@ -1177,11 +1178,12 @@
             const point = hit.point.clone();
             hitUnit = (hit.object._modelRef && hit.object._modelRef.unit) || 'm';
 
-            // add small sphere marker
-            const sphereGeo = new THREE.SphereGeometry(0.04, 8, 8);
-            const sphereMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, emissive: 0x444400, depthTest: false });
+            // add small sphere marker — rendered on top of everything
+            const sphereGeo = new THREE.SphereGeometry(0.05, 8, 8);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false });
             const sphere = new THREE.Mesh(sphereGeo, sphereMat);
             sphere.position.copy(point);
+            sphere.renderOrder = 999;
             scene.add(sphere);
             rulerState.markers.push(sphere);
             rulerState.points.push(point);
@@ -1190,10 +1192,11 @@
                 rulerState.modelUnit = hitUnit;
                 showRulerOverlay('📏 לחץ על נקודה שנייה');
             } else if (rulerState.points.length === 2) {
-                // draw line
+                // draw line — rendered on top of everything
                 const lineGeo = new THREE.BufferGeometry().setFromPoints(rulerState.points);
-                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, depthTest: false, linewidth: 2 });
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, depthTest: false });
                 rulerState.line = new THREE.Line(lineGeo, lineMat);
+                rulerState.line.renderOrder = 999;
                 scene.add(rulerState.line);
 
                 // calculate distance in 3D scene units, then convert to real units
@@ -2717,8 +2720,10 @@
         // שמור מודל ב-IndexedDB
         async function saveModelToIDB(model) {
             try {
-                const meshes = model.meshes.filter(m => !(m.userData && m.userData.label) && !m.isSprite);
-                const geoBuffers = meshes.map(mesh => geometryToArrayBuffer(model.originalGeometries[model.meshes.indexOf(mesh)] || mesh.geometry));
+                // שמור את ה-originalGeometries — לפני כל שינוי חיתוך
+                const geoBuffers = model.originalGeometries
+                    .filter(g => g && g.attributes && g.attributes.position)
+                    .map(g => geometryToArrayBuffer(g));
                 await idbPut({
                     name: model.name,
                     color: model.color,
