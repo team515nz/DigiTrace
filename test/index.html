@@ -234,6 +234,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         let scene, camera, renderer;
+        let rulerScene; // separate scene rendered on top of everything for ruler
         let models = [];
         let modelCounter = 0;
         let globalBoundingBox = null;
@@ -296,6 +297,9 @@
             floor.rotation.x = Math.PI / 2;
             floor.position.y = -2;
             scene.add(floor);
+
+            // Separate overlay scene for ruler — always renders on top
+            rulerScene = new THREE.Scene();
 
             raycaster = new THREE.Raycaster();
             
@@ -388,7 +392,17 @@
         function animate() {
             requestAnimationFrame(animate);
             if (renderer && scene && camera) {
+                // Render main scene
+                renderer.autoClear = true;
                 renderer.render(scene, camera);
+                // Render ruler scene on top: clear only depth buffer so ruler
+                // always appears above all 3D models ("top layer")
+                if (rulerScene) {
+                    renderer.autoClear = false;
+                    renderer.clearDepth();
+                    renderer.render(rulerScene, camera);
+                    renderer.autoClear = true;
+                }
             }
         }
 
@@ -1142,9 +1156,9 @@
         }
 
         function clearRulerObjects() {
-            rulerState.markers.forEach(m => scene && scene.remove(m));
+            rulerState.markers.forEach(m => rulerScene && rulerScene.remove(m));
             rulerState.markers = [];
-            if (rulerState.line) { scene && scene.remove(rulerState.line); rulerState.line = null; }
+            if (rulerState.line) { rulerScene && rulerScene.remove(rulerState.line); rulerState.line = null; }
             rulerState.points = [];
         }
 
@@ -1185,12 +1199,11 @@
             hitUnit = (hit.object._modelRef && hit.object._modelRef.unit) || 'm';
 
             // add small sphere marker — rendered on top of everything
-            const sphereGeo = new THREE.SphereGeometry(0.05, 8, 8);
-            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false });
+            const sphereGeo = new THREE.SphereGeometry(0.06, 12, 12);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, depthTest: false, depthWrite: false });
             const sphere = new THREE.Mesh(sphereGeo, sphereMat);
             sphere.position.copy(point);
-            sphere.renderOrder = 999;
-            scene.add(sphere);
+            rulerScene.add(sphere); // renders on top of all models
             rulerState.markers.push(sphere);
             rulerState.points.push(point);
 
@@ -1200,10 +1213,9 @@
             } else if (rulerState.points.length === 2) {
                 // draw line — rendered on top of everything
                 const lineGeo = new THREE.BufferGeometry().setFromPoints(rulerState.points);
-                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, depthTest: false });
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 2, depthTest: false, depthWrite: false });
                 rulerState.line = new THREE.Line(lineGeo, lineMat);
-                rulerState.line.renderOrder = 999;
-                scene.add(rulerState.line);
+                rulerScene.add(rulerState.line); // renders on top of all models
 
                 // calculate distance in 3D scene units, then convert to real units
                 const distScene = rulerState.points[0].distanceTo(rulerState.points[1]);
