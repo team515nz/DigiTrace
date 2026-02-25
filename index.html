@@ -510,9 +510,21 @@ function updateCameraPosition() {
 function setupMouseControls() {
     const container = document.getElementById('canvas-container');
 
+    container.addEventListener('contextmenu', (e) => e.preventDefault());
+
     container.addEventListener('mousedown', (e) => {
+        // Right-click always rotates
+        if (e.button === 2) {
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+            return;
+        }
+
+        if (e.button !== 0) return;
+
         if (anchorState.picking) { pickAnchorPoint(e.clientX, e.clientY); return; }
         if (rulerState.active) { pickRulerPoint(e.clientX, e.clientY); return; }
+
         if (alignState.active && alignState.mode === 'points' && alignState.selectingModel !== null) {
             const rect = container.getBoundingClientRect();
             mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -525,11 +537,15 @@ function setupMouseControls() {
                 if (intersects.length > 0) {
                     selectAlignmentPoint(e.clientX, e.clientY);
                 } else {
-                    showToast('לחץ ישירות על המודל כדי לסמן נקודה', 'error');
+                    // Clicked background — rotate instead of showing error
+                    isDragging = true;
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
                 }
             }
             return;
         }
+
+        // Normal left-click: rotate
         isDragging = true;
         previousMousePosition = { x: e.clientX, y: e.clientY };
     });
@@ -1108,10 +1124,6 @@ function alignStartStep2() {
     // Apply isolation if checked
     applyIsolation(id1, id2);
 
-    // In base phase: hide target, show only base
-    const _target = models.find(m => m.id === id2);
-    if (_target) _target.group.visible = false;
-
     // Tint models for visual distinction
     tintAlignModels(id1, id2);
 
@@ -1223,12 +1235,6 @@ function alignGoToStep3() {
         document.getElementById('canvas-container').classList.remove('align-mode');
     }
 
-    // Switch visibility: show target, hide base
-    const base   = models.find(m => m.id === alignState.model1);
-    const target = models.find(m => m.id === alignState.model2);
-    if (base)   base.group.visible   = false;
-    if (target) target.group.visible = true;
-
     document.getElementById('requiredPointsLabel').textContent = alignState.points1.length;
     document.getElementById('btnExecuteAlign').disabled = true;
     alignSetStep(3);
@@ -1238,13 +1244,8 @@ function alignGoToStep3() {
 function alignBackToStep2() {
     alignState.phase = 'base';
     alignState.selectingModel = alignState.model1;
-    // Keep points2 and target markers — do NOT clear them
-
-    // Switch visibility: show base, hide target
-    const base   = models.find(m => m.id === alignState.model1);
-    const target = models.find(m => m.id === alignState.model2);
-    if (base)   base.group.visible   = true;
-    if (target) target.group.visible = false;
+    alignState.points2 = [];
+    removeMarkersForModel(alignState.model2);
 
     document.getElementById('canvas-container').classList.add('align-mode');
     alignSetStep(2);
@@ -1511,12 +1512,6 @@ function cleanupAlignState() {
     // Remove 3D markers
     alignState.markers.forEach(m => { if (m.mesh && m.mesh.parent) m.mesh.parent.remove(m.mesh); });
     alignState.markers = [];
-
-    // Restore visibility of both alignment models (they may have been hidden during base/target phases)
-    [alignState.model1, alignState.model2].forEach(id => {
-        const m = models.find(m => m.id === id);
-        if (m && m.visible) m.group.visible = true;
-    });
 
     // Restore tints and isolation
     restoreTint();
