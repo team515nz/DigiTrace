@@ -7,15 +7,6 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="icon.png" type="image/png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        .upload-box.drag-over {
-            background: #fff3e0 !important;
-            border-color: #D2691E !important;
-            border-style: solid !important;
-            transform: scale(1.02);
-            box-shadow: 0 0 0 4px rgba(210,105,30,0.25);
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -33,8 +24,8 @@
                 <div class="upload-section">
                     <h3 data-i18n="uploadTitle">📁 העלאת מודלים</h3>
                     <div class="upload-box" id="uploadBox" onclick="document.getElementById('fileInput').click()">
-                        <div class="upload-icon" id="uploadIcon">📤</div>
-                        <div id="uploadHintText" data-i18n="uploadHint">לחץ או גרור קובץ 3D לכאן</div>
+                        <div class="upload-icon">📤</div>
+                        <div data-i18n="uploadHint">לחץ להעלאת קובץ 3D</div>
                         <small class="text-muted" data-i18n="fileFormats">OBJ, STL, GLB, GLTF</small>
                     </div>
                     <div id="loadingMessage" class="loading-message hidden"></div>
@@ -1144,10 +1135,10 @@ function alignStartStep2() {
 }
 
 function applyIsolation(id1, id2) {
-    if (!document.getElementById('alignIsolationToggle').checked) return;
     alignState.hiddenModels = [];
     models.forEach(model => {
         if (model.id !== id1 && model.id !== id2 && model.visible) {
+            console.log(`[Align] Isolation: hiding "${model.name}"`);
             model.group.visible = false;
             alignState.hiddenModels.push(model.id);
         }
@@ -2368,77 +2359,6 @@ window.addEventListener('resize',()=>{if(renderer&&camera){const container=docum
 // FILE UPLOAD
 // ============================================================
 let pendingFiles=[], pendingColors=[];
-
-// ---- Drag & Drop ----
-(function setupDragDrop() {
-    const uploadBox = document.getElementById('uploadBox');
-    const ACCEPTED = new Set(['obj','stl','glb','gltf']);
-
-    function getValidFiles(dataTransfer) {
-        return Array.from(dataTransfer.files).filter(f => {
-            const ext = f.name.split('.').pop().toLowerCase();
-            return ACCEPTED.has(ext);
-        });
-    }
-
-    uploadBox.addEventListener('dragenter', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        uploadBox.classList.add('drag-over');
-        document.getElementById('uploadIcon').textContent = '📂';
-        document.getElementById('uploadHintText').textContent = 'שחרר כאן';
-        console.log('[Upload] Drag enter');
-    });
-
-    uploadBox.addEventListener('dragover', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        uploadBox.classList.add('drag-over');
-    });
-
-    uploadBox.addEventListener('dragleave', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        // Only reset if leaving the box itself (not a child)
-        if (!uploadBox.contains(e.relatedTarget)) {
-            uploadBox.classList.remove('drag-over');
-            document.getElementById('uploadIcon').textContent = '📤';
-            document.getElementById('uploadHintText').textContent = 'לחץ או גרור קובץ 3D לכאן';
-            console.log('[Upload] Drag leave');
-        }
-    });
-
-    uploadBox.addEventListener('drop', async (e) => {
-        e.preventDefault(); e.stopPropagation();
-        uploadBox.classList.remove('drag-over');
-        document.getElementById('uploadIcon').textContent = '📤';
-        document.getElementById('uploadHintText').textContent = 'לחץ או גרור קובץ 3D לכאן';
-
-        const files = getValidFiles(e.dataTransfer);
-        console.log(`[Upload] Dropped ${e.dataTransfer.files.length} files, ${files.length} valid`);
-
-        if (!files.length) {
-            showToast('פורמט לא נתמך — נדרש OBJ, STL, GLB או GLTF', 'error');
-            return;
-        }
-        if (!scene) initThreeJS();
-        pendingFiles = files;
-        pendingColors = files.map((_,i) => MODEL_COLORS[(models.length+i) % MODEL_COLORS.length].hex);
-        const needsUnits = files.filter(f => { const ext=f.name.split('.').pop().toLowerCase(); return ext==='stl'||ext==='obj'; });
-        if (!needsUnits.length) { await loadPendingFiles('m'); return; }
-        const glbCount = files.length - needsUnits.length;
-        let desc = `העלית ${files.length} קבצים.`;
-        if (glbCount > 0) desc += ` ${glbCount} קבצי GLB/GLTF יוגדרו כמטר.`;
-        desc += ` בחר יחידת מידה עבור ${needsUnits.map(f=>f.name).join(', ')}:`;
-        document.getElementById('unitsModalDesc').textContent = desc;
-        const perList = document.getElementById('unitsPerModelList'); perList.innerHTML = '';
-        needsUnits.forEach(f => {
-            const row = document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:8px;';
-            row.innerHTML=`<span style="flex:1;font-size:0.85em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span><select data-filename="${f.name}" style="padding:5px;border-radius:5px;background:#2a2a3e;color:#eee;border:1px solid #555;font-size:0.85em;"><option value="mm">mm</option><option value="cm">cm</option><option value="m" selected>m</option><option value="inch">inch</option><option value="ft">ft</option></select>`;
-            perList.appendChild(row);
-        });
-        document.getElementById('unitsPerModelSection').style.display = needsUnits.length>1?'block':'none';
-        document.getElementById('unitsModal').style.display = 'flex';
-    });
-})();
-// ---- End Drag & Drop ----
 
 document.getElementById('fileInput').addEventListener('change',async(e)=>{
     const files=Array.from(e.target.files); if(!files.length)return;
