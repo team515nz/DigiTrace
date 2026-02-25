@@ -127,7 +127,15 @@
                                     <select id="alignModel2Select" class="align-model-select"></select>
                                 </div>
 
-                                <div class="align-hint" style="font-size:0.72em;padding:5px 8px;margin-bottom:6px;">👁️ שאר המודלים יוסתרו אוטומטית בזמן הסימון</div>
+                                <div class="isolation-toggle-row">
+                                    <div class="isolation-toggle-label">
+                                        👁️ הסתר שאר מודלים בזמן יישור
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="alignIsolationToggle" checked>
+                                        <span class="toggle-track"></span>
+                                    </label>
+                                </div>
 
                                 <div class="align-actions-row">
                                     <button class="align-btn-primary" onclick="alignStartStep2()">המשך →</button>
@@ -142,14 +150,30 @@
                                     <span id="alignPhaseLabelBase">לחץ על מודל הבסיס לסימון נקודות</span>
                                 </div>
 
-                                <div class="align-counter-row">
-                                    <span class="align-counter-label">נקודות מסומנות על בסיס</span>
-                                    <span class="align-counter-value" id="base1Counter">0</span>
+                                <div class="align-mode-tabs">
+                                    <div class="align-mode-tab active" id="tabPoints" onclick="setAlignMode('points')">📍 נקודות</div>
+                                    <div class="align-mode-tab" id="tabManual" onclick="setAlignMode('manual')">🖐 הזזה ידנית</div>
                                 </div>
-                                <div class="align-hint" style="margin-bottom:8px">לחץ על פני המודל הצהוב כדי לסמן נקודות. לפחות 3 לדיוק מיטבי.</div>
-                                <div class="align-actions-row">
-                                    <button class="align-btn-secondary" id="btnToStep3" onclick="alignGoToStep3()" disabled>שלב 2: מטרה →</button>
-                                    <button class="align-btn-undo" onclick="undoLastPoint()" title="בטל נקודה אחרונה">↶</button>
+
+                                <!-- Points sub-panel -->
+                                <div class="align-subpanel active" id="subpanelPoints">
+                                    <div class="align-counter-row">
+                                        <span class="align-counter-label">נקודות מסומנות על בסיס</span>
+                                        <span class="align-counter-value" id="base1Counter">0</span>
+                                    </div>
+                                    <div class="align-hint" style="margin-bottom:8px">לחץ <b>קליק שמאלי</b> על פני המודל הצהוב כדי לסמן נקודות. <b>קליק ימני</b> להזזת מצלמה. לפחות 3 לדיוק מיטבי.</div>
+                                    <div class="align-actions-row">
+                                        <button class="align-btn-secondary" id="btnToStep3" onclick="alignGoToStep3()" disabled>שלב 2: מטרה →</button>
+                                        <button class="align-btn-undo" onclick="undoLastPoint()" title="בטל נקודה אחרונה">↶</button>
+                                    </div>
+                                </div>
+
+                                <!-- Manual sub-panel (shown on base model for reference only) -->
+                                <div class="align-subpanel" id="subpanelManualBase">
+                                    <div class="align-hint">במצב הזזה ידנית — סמן קודם נקודות התאמה, ואז הזז את מודל המטרה בשלב הבא.</div>
+                                    <div class="align-actions-row">
+                                        <button class="align-btn-secondary" onclick="alignGoToStep3()">המשך לשלב 2 →</button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -162,18 +186,69 @@
                                 </div>
 
                                 <!-- Points sub-panel target -->
-                                <div class="align-counter-row">
-                                    <span class="align-counter-label">נקודות מסומנות על מטרה</span>
-                                    <span class="align-counter-value" id="targetCounter">0</span>
+                                <div class="align-subpanel active" id="subpanelPointsTarget">
+                                    <div class="align-counter-row">
+                                        <span class="align-counter-label">נקודות מסומנות על מטרה</span>
+                                        <span class="align-counter-value" id="targetCounter">0</span>
+                                    </div>
+                                    <div class="align-counter-row" style="margin-top:-4px;">
+                                        <span class="align-counter-label">נדרשות</span>
+                                        <span class="align-counter-value" id="requiredPointsLabel">—</span>
+                                    </div>
+                                    <div class="align-hint" style="margin-bottom:8px">סמן נקודות מקבילות על המודל הכחול. <b>קליק שמאלי</b> לסימון, <b>קליק ימני</b> לסיבוב. מספר הנקודות חייב להתאים לבסיס.</div>
+                                    <div class="align-actions-row">
+                                        <button class="align-btn-primary" id="btnExecuteAlign" onclick="executeAlignment()" disabled>✓ יישר</button>
+                                        <button class="align-btn-undo" onclick="undoLastPoint()" title="בטל נקודה אחרונה">↶</button>
+                                    </div>
                                 </div>
-                                <div class="align-counter-row" style="margin-top:-4px;">
-                                    <span class="align-counter-label">נדרשות</span>
-                                    <span class="align-counter-value" id="requiredPointsLabel">—</span>
-                                </div>
-                                <div class="align-hint" style="margin-bottom:8px">סמן נקודות מקבילות על המודל הכחול. מספר הנקודות חייב להתאים לבסיס.</div>
-                                <div class="align-actions-row">
-                                    <button class="align-btn-primary" id="btnExecuteAlign" onclick="executeAlignment()" disabled>✓ יישר</button>
-                                    <button class="align-btn-undo" onclick="undoLastPoint()" title="בטל נקודה אחרונה">↶</button>
+
+                                <!-- Manual transform sub-panel -->
+                                <div class="align-subpanel" id="subpanelManualTransform">
+                                    <div class="align-hint" style="margin-bottom:8px">הזז את מודל המטרה ידנית. שינויים חלים בזמן אמת.</div>
+
+                                    <div class="transform-section-title">מיקום</div>
+                                    <div class="manual-transform-grid">
+                                        <div class="transform-row">
+                                            <div class="transform-axis-label axis-x">X</div>
+                                            <input type="range" class="transform-slider" id="txSlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()">
+                                            <input type="number" class="transform-value-input" id="txVal" value="0.00" step="0.01" oninput="syncSliderFromInput('tx')">
+                                        </div>
+                                        <div class="transform-row">
+                                            <div class="transform-axis-label axis-y">Y</div>
+                                            <input type="range" class="transform-slider" id="tySlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()">
+                                            <input type="number" class="transform-value-input" id="tyVal" value="0.00" step="0.01" oninput="syncSliderFromInput('ty')">
+                                        </div>
+                                        <div class="transform-row">
+                                            <div class="transform-axis-label axis-z">Z</div>
+                                            <input type="range" class="transform-slider" id="tzSlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()">
+                                            <input type="number" class="transform-value-input" id="tzVal" value="0.00" step="0.01" oninput="syncSliderFromInput('tz')">
+                                        </div>
+                                    </div>
+
+                                    <div class="transform-section-title">סיבוב (מעלות)</div>
+                                    <div class="manual-transform-grid">
+                                        <div class="transform-row">
+                                            <div class="transform-axis-label axis-rx">RX</div>
+                                            <input type="range" class="transform-slider" id="rxSlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()">
+                                            <input type="number" class="transform-value-input" id="rxVal" value="0" step="1" oninput="syncSliderFromInput('rx')">
+                                        </div>
+                                        <div class="transform-row">
+                                            <div class="transform-axis-label axis-ry">RY</div>
+                                            <input type="range" class="transform-slider" id="rySlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()">
+                                            <input type="number" class="transform-value-input" id="ryVal" value="0" step="1" oninput="syncSliderFromInput('ry')">
+                                        </div>
+                                        <div class="transform-row">
+                                            <div class="transform-axis-label axis-rz">RZ</div>
+                                            <input type="range" class="transform-slider" id="rzSlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()">
+                                            <input type="number" class="transform-value-input" id="rzVal" value="0" step="1" oninput="syncSliderFromInput('rz')">
+                                        </div>
+                                    </div>
+
+                                    <button class="transform-reset-btn" onclick="resetManualTransform()">↺ אפס ידני</button>
+
+                                    <div class="align-actions-row" style="margin-top:10px;">
+                                        <button class="align-btn-primary" onclick="confirmManualAlignment()">✓ אשר מיקום</button>
+                                    </div>
                                 </div>
 
                                 <button class="align-btn-cancel" onclick="alignBackToStep2()">← חזור לבסיס</button>
@@ -338,16 +413,19 @@ let baseModelId = null;
 // ============================================================
 let alignState = {
     active: false,
-    mode: 'points',
-    phase: 'base',
-    model1: null,
-    model2: null,
+    mode: 'points',        // 'points' | 'manual'
+    phase: 'base',         // 'base' | 'target'
+    model1: null,          // base model id
+    model2: null,          // target model id
     selectingModel: null,
     points1: [],
     points2: [],
     markers: [],
     minPoints: 3,
-    hiddenModels: []
+    manualBasePos: null,
+    manualBaseRot: null,
+    manualBaseScale: null,
+    hiddenModels: []       // ids of models hidden during isolation
 };
 
 let raycaster = new THREE.Raycaster();
@@ -432,28 +510,42 @@ function updateCameraPosition() {
 function setupMouseControls() {
     const container = document.getElementById('canvas-container');
 
+    // Prevent context menu on right-click in canvas (we use right-click to rotate)
+    container.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+
     container.addEventListener('mousedown', (e) => {
-        if (anchorState.picking) { pickAnchorPoint(e.clientX, e.clientY); return; }
-        if (rulerState.active) { pickRulerPoint(e.clientX, e.clientY); return; }
-        if (alignState.active && alignState.mode === 'points' && alignState.selectingModel !== null) {
-            const rect = container.getBoundingClientRect();
-            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const currentModel = models.find(m => m.id === alignState.selectingModel);
-            if (currentModel) {
-                const meshes = currentModel.meshes || [];
-                const intersects = raycaster.intersectObjects(meshes, true);
-                if (intersects.length > 0) {
-                    selectAlignmentPoint(e.clientX, e.clientY);
-                } else {
-                    showToast('לחץ ישירות על המודל כדי לסמן נקודה', 'error');
-                }
-            }
+        // Right-click (button 2) → always rotate camera
+        if (e.button === 2) {
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
             return;
         }
-        isDragging = true;
-        previousMousePosition = { x: e.clientX, y: e.clientY };
+
+        // Left-click (button 0) → pick points or other actions
+        if (e.button === 0) {
+            if (anchorState.picking) { pickAnchorPoint(e.clientX, e.clientY); return; }
+            if (rulerState.active) { pickRulerPoint(e.clientX, e.clientY); return; }
+            if (alignState.active && alignState.mode === 'points' && alignState.selectingModel !== null) {
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const currentModel = models.find(m => m.id === alignState.selectingModel);
+                if (currentModel) {
+                    const meshes = currentModel.meshes || [];
+                    const intersects = raycaster.intersectObjects(meshes, true);
+                    if (intersects.length > 0) {
+                        selectAlignmentPoint(e.clientX, e.clientY);
+                    } else {
+                        showToast('לחץ ישירות על המודל כדי לסמן נקודה', 'error');
+                    }
+                }
+                return;
+            }
+            // Left-click with no special mode → also allow rotating (fallback)
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        }
     });
 
     container.addEventListener('mousemove', (e) => {
@@ -1027,11 +1119,14 @@ function alignStartStep2() {
     // Update base label
     document.getElementById('alignPhaseLabelBase').textContent = `לחץ על "${m1.name}" (בסיס)`;
 
-    // Apply isolation if checked
+    // Apply isolation if checked - hide all other models
     applyIsolation(id1, id2);
 
     // Tint models for visual distinction
     tintAlignModels(id1, id2);
+
+    // Show only the base model (id1) during point picking
+    isolateActivePickModel(id1);
 
     document.getElementById('canvas-container').classList.add('align-mode');
     alignSetStep(2);
@@ -1040,20 +1135,46 @@ function alignStartStep2() {
 }
 
 function applyIsolation(id1, id2) {
+    if (!document.getElementById('alignIsolationToggle').checked) return;
     alignState.hiddenModels = [];
     models.forEach(model => {
-        if (model.id !== id1 && model.id !== id2) {
-            // track original group visibility state
-            alignState.hiddenModels.push({ id: model.id, wasVisible: model.group.visible });
+        if (model.id !== id1 && model.id !== id2 && model.visible) {
             model.group.visible = false;
+            alignState.hiddenModels.push(model.id);
+        }
+    });
+}
+
+// Show only the model currently being picked (hide the other align model too)
+function isolateActivePickModel(activeId) {
+    if (!document.getElementById('alignIsolationToggle').checked) return;
+    models.forEach(model => {
+        if (model.id === activeId) {
+            model.group.visible = true;
+        } else if (!alignState.hiddenModels.includes(model.id)) {
+            // This is the other alignment model - hide it temporarily
+            model.group.visible = false;
+            model._tempHiddenForPick = true;
+        }
+    });
+}
+
+function restorePickIsolation() {
+    models.forEach(model => {
+        if (model._tempHiddenForPick) {
+            if (model.visible) model.group.visible = true;
+            delete model._tempHiddenForPick;
         }
     });
 }
 
 function restoreIsolation() {
-    alignState.hiddenModels.forEach(entry => {
-        const m = models.find(m => m.id === entry.id);
-        if (m) m.group.visible = entry.wasVisible;
+    // Restore temp-hidden models first
+    restorePickIsolation();
+    // Then restore the main hidden models list
+    alignState.hiddenModels.forEach(id => {
+        const m = models.find(m=>m.id===id);
+        if (m && m.visible) m.group.visible = true;
     });
     alignState.hiddenModels = [];
 }
@@ -1099,8 +1220,26 @@ function hideAlignBanner() {
     document.getElementById('alignIsolationBanner').classList.remove('visible');
 }
 
+function setAlignMode(mode) {
+    alignState.mode = mode;
+    document.getElementById('tabPoints').classList.toggle('active', mode === 'points');
+    document.getElementById('tabManual').classList.toggle('active', mode === 'manual');
+
+    if (alignState.phase === 'base') {
+        document.getElementById('subpanelPoints').classList.toggle('active', mode === 'points');
+        document.getElementById('subpanelManualBase').classList.toggle('active', mode === 'manual');
+    }
+
+    if (mode === 'points') {
+        document.getElementById('canvas-container').classList.add('align-mode');
+        document.getElementById('canvas-container').classList.remove('move-mode');
+    } else {
+        document.getElementById('canvas-container').classList.remove('align-mode');
+    }
+}
+
 function alignGoToStep3() {
-    if (alignState.points1.length < alignState.minPoints) {
+    if (alignState.mode === 'points' && alignState.points1.length < alignState.minPoints) {
         alert(`יש לסמן לפחות ${alignState.minPoints} נקודות על מודל הבסיס`);
         return;
     }
@@ -1110,10 +1249,26 @@ function alignGoToStep3() {
     const m2 = models.find(m=>m.id===alignState.model2);
 
     document.getElementById('alignPhaseLabelTarget').textContent =
-        `לחץ על "${m2?m2.name:'מטרה'}" לסימון ${alignState.points1.length} נקודות`;
+        alignState.mode === 'points'
+            ? `לחץ על "${m2?m2.name:'מטרה'}" לסימון ${alignState.points1.length} נקודות`
+            : `הזז את "${m2?m2.name:'מטרה'}" למיקום הרצוי`;
+
+    // Show correct subpanel
+    document.getElementById('subpanelPointsTarget').classList.toggle('active', alignState.mode === 'points');
+    document.getElementById('subpanelManualTransform').classList.toggle('active', alignState.mode === 'manual');
+
+    if (alignState.mode === 'manual') {
+        initManualTransform();
+        document.getElementById('canvas-container').classList.remove('align-mode');
+    }
 
     document.getElementById('requiredPointsLabel').textContent = alignState.points1.length;
     document.getElementById('btnExecuteAlign').disabled = true;
+
+    // Restore previous isolation and show only target model
+    restorePickIsolation();
+    isolateActivePickModel(alignState.model2);
+
     alignSetStep(3);
     updateAlignCounters();
 }
@@ -1123,6 +1278,10 @@ function alignBackToStep2() {
     alignState.selectingModel = alignState.model1;
     alignState.points2 = [];
     removeMarkersForModel(alignState.model2);
+
+    // Restore isolation and show only base model
+    restorePickIsolation();
+    isolateActivePickModel(alignState.model1);
 
     document.getElementById('canvas-container').classList.add('align-mode');
     alignSetStep(2);
@@ -1246,6 +1405,79 @@ function removeMarkersForModel(modelId) {
 }
 
 // ============================================================
+// MANUAL TRANSFORM
+// ============================================================
+function initManualTransform() {
+    const model = models.find(m=>m.id===alignState.model2);
+    if (!model) return;
+    // Save baseline
+    alignState.manualBasePos = model.group.position.clone();
+    alignState.manualBaseRot = model.group.rotation.clone();
+    alignState.manualBaseScale = model.group.scale.clone();
+    // Set sliders to 0 delta
+    ['tx','ty','tz'].forEach(id => {
+        document.getElementById(id+'Slider').value = 0;
+        document.getElementById(id+'Val').value = '0.00';
+    });
+    ['rx','ry','rz'].forEach(id => {
+        document.getElementById(id+'Slider').value = 0;
+        document.getElementById(id+'Val').value = '0';
+    });
+}
+
+function applyManualTransform() {
+    const model = models.find(m=>m.id===alignState.model2);
+    if (!model || !alignState.manualBasePos) return;
+    const tx = parseFloat(document.getElementById('txSlider').value)||0;
+    const ty = parseFloat(document.getElementById('tySlider').value)||0;
+    const tz = parseFloat(document.getElementById('tzSlider').value)||0;
+    const rx = parseFloat(document.getElementById('rxSlider').value)||0;
+    const ry = parseFloat(document.getElementById('rySlider').value)||0;
+    const rz = parseFloat(document.getElementById('rzSlider').value)||0;
+
+    // Update text inputs
+    document.getElementById('txVal').value = tx.toFixed(2);
+    document.getElementById('tyVal').value = ty.toFixed(2);
+    document.getElementById('tzVal').value = tz.toFixed(2);
+    document.getElementById('rxVal').value = rx.toFixed(0);
+    document.getElementById('ryVal').value = ry.toFixed(0);
+    document.getElementById('rzVal').value = rz.toFixed(0);
+
+    model.group.position.set(
+        alignState.manualBasePos.x + tx,
+        alignState.manualBasePos.y + ty,
+        alignState.manualBasePos.z + tz
+    );
+    model.group.rotation.set(
+        alignState.manualBaseRot.x + rx * Math.PI/180,
+        alignState.manualBaseRot.y + ry * Math.PI/180,
+        alignState.manualBaseRot.z + rz * Math.PI/180
+    );
+    calculateGlobalBoundingBox();
+}
+
+function syncSliderFromInput(axis) {
+    const val = parseFloat(document.getElementById(axis+'Val').value)||0;
+    document.getElementById(axis+'Slider').value = val;
+    applyManualTransform();
+}
+
+function resetManualTransform() {
+    const model = models.find(m=>m.id===alignState.model2);
+    if (!model || !alignState.manualBasePos) return;
+    model.group.position.copy(alignState.manualBasePos);
+    model.group.rotation.copy(alignState.manualBaseRot);
+    model.group.scale.copy(alignState.manualBaseScale);
+    ['tx','ty','tz'].forEach(id => { document.getElementById(id+'Slider').value=0; document.getElementById(id+'Val').value='0.00'; });
+    ['rx','ry','rz'].forEach(id => { document.getElementById(id+'Slider').value=0; document.getElementById(id+'Val').value='0'; });
+    calculateGlobalBoundingBox();
+}
+
+function confirmManualAlignment() {
+    alignFinish(`מודל הוזזה ידנית הושלמה ✓`);
+}
+
+// ============================================================
 // POINT-BASED EXECUTE ALIGNMENT
 // ============================================================
 function executeAlignment() {
@@ -1325,7 +1557,7 @@ function cleanupAlignState() {
     alignState = {
         active: false, mode: 'points', phase: 'base', model1: null, model2: null,
         selectingModel: null, points1: [], points2: [], markers: [], minPoints: 3,
-        hiddenModels: []
+        manualBasePos: null, manualBaseRot: null, manualBaseScale: null, hiddenModels: []
     };
 
     document.getElementById('alignSection').classList.add('hidden');
@@ -1335,6 +1567,13 @@ function cleanupAlignState() {
 }
 
 function cancelAlignment() {
+    // If manual transform was in progress, restore original position
+    const model = alignState.model2 !== null ? models.find(m=>m.id===alignState.model2) : null;
+    if (model && alignState.manualBasePos) {
+        model.group.position.copy(alignState.manualBasePos);
+        model.group.rotation.copy(alignState.manualBaseRot);
+        model.group.scale.copy(alignState.manualBaseScale);
+    }
     cleanupAlignState();
 }
 
