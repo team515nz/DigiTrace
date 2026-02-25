@@ -196,14 +196,11 @@
                                         <span class="align-counter-value" id="requiredPointsLabel">—</span>
                                     </div>
                                     <div class="align-hint" style="margin-bottom:8px">סמן נקודות מקבילות על המודל הכחול. מספר הנקודות חייב להתאים לבסיס.</div>
-
-                                    <!-- Preview base model button -->
                                     <button id="btnPreviewBase" onclick="toggleBasePreview()"
-                                        style="width:100%;margin-bottom:8px;padding:7px 10px;background:rgba(255,213,128,0.15);border:1px solid rgba(255,213,128,0.45);border-radius:7px;color:#FFD580;font-size:0.82em;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;">
+                                        style="width:100%;margin-bottom:8px;padding:7px 10px;background:rgba(255,213,128,0.15);border:1px solid rgba(255,213,128,0.45);border-radius:7px;color:#FFD580;font-size:0.82em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background 0.15s,border-color 0.15s;">
                                         <span id="btnPreviewBaseIcon">👁</span>
                                         <span id="btnPreviewBaseText">הצג מודל בסיס עם נקודות</span>
                                     </button>
-
                                     <div class="align-actions-row">
                                         <button class="align-btn-primary" id="btnExecuteAlign" onclick="executeAlignment()" disabled>✓ יישר</button>
                                         <button class="align-btn-undo" onclick="undoLastPoint()" title="בטל נקודה אחרונה">↶</button>
@@ -434,7 +431,7 @@ let alignState = {
     manualBaseRot: null,
     manualBaseScale: null,
     hiddenModels: [],      // ids of models hidden during isolation
-    previewingBase: false  // true when viewing base model during target step
+    previewingBase: false  // toggled by "show base model" button in step 3
 };
 
 let raycaster = new THREE.Raycaster();
@@ -1212,6 +1209,7 @@ function alignGoToStep3() {
 
     alignState.phase = 'target';
     alignState.selectingModel = alignState.model2;
+    alignState.previewingBase = false;
     const m2 = models.find(m=>m.id===alignState.model2);
 
     document.getElementById('alignPhaseLabelTarget').textContent =
@@ -1228,13 +1226,17 @@ function alignGoToStep3() {
         document.getElementById('canvas-container').classList.remove('align-mode');
     }
 
+    // Switch isolation: hide base model, show target model only
+    const baseModel   = models.find(m => m.id === alignState.model1);
+    const targetModel = models.find(m => m.id === alignState.model2);
+    if (baseModel)   baseModel.group.visible   = false;
+    if (targetModel) targetModel.group.visible  = true;
+
+    // Reset preview button appearance
+    _updatePreviewBtn(false);
+
     document.getElementById('requiredPointsLabel').textContent = alignState.points1.length;
     document.getElementById('btnExecuteAlign').disabled = true;
-
-    // Reset preview state when entering step 3
-    alignState.previewingBase = false;
-    _updatePreviewBtn();
-
     alignSetStep(3);
     updateAlignCounters();
 }
@@ -1243,46 +1245,47 @@ function alignBackToStep2() {
     alignState.phase = 'base';
     alignState.selectingModel = alignState.model1;
     alignState.points2 = [];
+    alignState.previewingBase = false;
     removeMarkersForModel(alignState.model2);
 
-    // Make sure preview mode is off when going back
-    if (alignState.previewingBase) {
-        alignState.previewingBase = false;
-        _updatePreviewBtn();
-    }
+    // Switch isolation back: show base, hide target
+    const baseModel   = models.find(m => m.id === alignState.model1);
+    const targetModel = models.find(m => m.id === alignState.model2);
+    if (baseModel)   baseModel.group.visible   = true;
+    if (targetModel) targetModel.group.visible  = false;
+
+    _updatePreviewBtn(false);
 
     document.getElementById('canvas-container').classList.add('align-mode');
     alignSetStep(2);
     updateAlignCounters();
 }
 
-// Toggle between showing the base model (with its points) and the target model
 function toggleBasePreview() {
     alignState.previewingBase = !alignState.previewingBase;
-    const baseModel  = models.find(m => m.id === alignState.model1);
+    const baseModel   = models.find(m => m.id === alignState.model1);
     const targetModel = models.find(m => m.id === alignState.model2);
 
     if (alignState.previewingBase) {
-        // Hide target, show base
+        // Show base with its points, hide target, disable picking
         if (targetModel) targetModel.group.visible = false;
-        if (baseModel)  baseModel.group.visible  = true;
-        // Disable point picking while previewing
+        if (baseModel)   baseModel.group.visible   = true;
         alignState.selectingModel = null;
     } else {
-        // Back to target picking
-        if (targetModel) targetModel.group.visible = true;
-        if (baseModel)  baseModel.group.visible  = false;
+        // Back to target: hide base, show target, re-enable picking
+        if (baseModel)   baseModel.group.visible   = false;
+        if (targetModel) targetModel.group.visible  = true;
         alignState.selectingModel = alignState.model2;
     }
-    _updatePreviewBtn();
+    _updatePreviewBtn(alignState.previewingBase);
 }
 
-function _updatePreviewBtn() {
+function _updatePreviewBtn(previewing) {
     const btn  = document.getElementById('btnPreviewBase');
     const icon = document.getElementById('btnPreviewBaseIcon');
     const text = document.getElementById('btnPreviewBaseText');
     if (!btn) return;
-    if (alignState.previewingBase) {
+    if (previewing) {
         btn.style.background  = 'rgba(255,213,128,0.35)';
         btn.style.borderColor = 'rgba(255,213,128,0.85)';
         icon.textContent = '✏️';
@@ -1295,7 +1298,7 @@ function _updatePreviewBtn() {
     }
 }
 
-function updateAlignCounters() {
+
     const c1 = document.getElementById('base1Counter');
     const c2 = document.getElementById('targetCounter');
     if (c1) {
@@ -1556,28 +1559,18 @@ function cleanupAlignState() {
     alignState.markers.forEach(m => { if (m.mesh && m.mesh.parent) m.mesh.parent.remove(m.mesh); });
     alignState.markers = [];
 
-    // If we were in preview mode, make sure both models are visible before cleanup
-    if (alignState.previewingBase) {
-        const m1 = models.find(m => m.id === alignState.model1);
-        const m2 = models.find(m => m.id === alignState.model2);
-        if (m1 && m1.visible) m1.group.visible = true;
-        if (m2 && m2.visible) m2.group.visible = true;
-    }
+    // If either alignment model is currently hidden due to step-3 isolation, restore it
+    [alignState.model1, alignState.model2].forEach(id => {
+        const m = models.find(m => m.id === id);
+        if (m && m.visible) m.group.visible = true;
+    });
 
-    // Restore tints and isolation
+    // Restore tints and full isolation list
     restoreTint();
     restoreIsolation();
 
-    // Reset button state
-    const btn = document.getElementById('btnPreviewBase');
-    if (btn) {
-        const icon = document.getElementById('btnPreviewBaseIcon');
-        const text = document.getElementById('btnPreviewBaseText');
-        if (icon) icon.textContent = '👁';
-        if (text) text.textContent = 'הצג מודל בסיס עם נקודות';
-        btn.style.background  = 'rgba(255,213,128,0.15)';
-        btn.style.borderColor = 'rgba(255,213,128,0.45)';
-    }
+    // Reset preview button
+    _updatePreviewBtn(false);
 
     // Reset state
     alignState = {
