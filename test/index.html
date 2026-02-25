@@ -1042,17 +1042,18 @@ function alignStartStep2() {
 function applyIsolation(id1, id2) {
     alignState.hiddenModels = [];
     models.forEach(model => {
-        if (model.id !== id1 && model.id !== id2 && model.visible) {
+        if (model.id !== id1 && model.id !== id2) {
+            // track original group visibility state
+            alignState.hiddenModels.push({ id: model.id, wasVisible: model.group.visible });
             model.group.visible = false;
-            alignState.hiddenModels.push(model.id);
         }
     });
 }
 
 function restoreIsolation() {
-    alignState.hiddenModels.forEach(id => {
-        const m = models.find(m=>m.id===id);
-        if (m && m.visible) m.group.visible = true;
+    alignState.hiddenModels.forEach(entry => {
+        const m = models.find(m => m.id === entry.id);
+        if (m) m.group.visible = entry.wasVisible;
     });
     alignState.hiddenModels = [];
 }
