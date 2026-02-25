@@ -942,6 +942,7 @@ function updateModelList() {
                     <span class="visibility-toggle" onclick="rotateModelY(${model.id})">🔄Y</span>
                     <span class="visibility-toggle" onclick="rotateModelX(${model.id})">🔄X</span>
                     <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">🔄Z</span>
+                    <span class="visibility-toggle" title="הורד מודל זה" onclick="downloadSingleModel(${model.id})">📥</span>
                     <button class="set-base-btn ${isBase?'active':''}" onclick="setBaseModel(${model.id})">${isBase?'🔒 בסיס':'⚓ קבע בסיס'}</button>
                     <span class="delete-btn" onclick="deleteModel(${model.id})">🗑️</span>
                 </div>
@@ -1135,10 +1136,10 @@ function alignStartStep2() {
 }
 
 function applyIsolation(id1, id2) {
+    if (!document.getElementById('alignIsolationToggle').checked) return;
     alignState.hiddenModels = [];
     models.forEach(model => {
         if (model.id !== id1 && model.id !== id2 && model.visible) {
-            console.log(`[Align] Isolation: hiding "${model.name}"`);
             model.group.visible = false;
             alignState.hiddenModels.push(model.id);
         }
@@ -2099,6 +2100,24 @@ function triggerDownload(blob, filename) {
     const url=URL.createObjectURL(blob); const a=document.createElement('a');
     a.href=url; a.download=filename; a.style.display='none'; document.body.appendChild(a); a.click();
     setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
+}
+
+function downloadSingleModel(id) {
+    const model = models.find(m => m.id === id);
+    if (!model) return;
+    const format = document.getElementById('exportFormat').value;
+    const baseName = model.name.replace(/\.[^.]+$/, '');
+    const geo = getSingleModelGeometry(model);
+    let blob, ext;
+    switch (format) {
+        case 'stl': blob = exportToSTL(geo);       ext = 'stl'; break;
+        case 'obj': blob = exportToOBJ(geo);       ext = 'obj'; break;
+        case 'glb': blob = exportToGLTF(geo,true); ext = 'glb'; break;
+        case 'gltf':blob = exportToGLTF(geo,false);ext = 'gltf';break;
+        default:    blob = exportToGLTF(geo,true); ext = 'glb';
+    }
+    console.log(`[Download] Single model "${model.name}" as ${ext.toUpperCase()}`);
+    triggerDownload(blob, `aligned_${baseName}.${ext}`);
 }
 
 function getSingleModelGeometry(model) {
