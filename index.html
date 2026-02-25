@@ -2130,7 +2130,7 @@ async function downloadAllSeparate() {
     const visibleModels=models.filter(m=>m.visible);
     if(!visibleModels.length){alert('אין מודלים גלויים');return;}
     const format=document.getElementById('exportFormat').value;
-    console.log(`[Download] Downloading ${visibleModels.length} models as ${format.toUpperCase()}`);
+    console.log(`[Download] ${visibleModels.length} models, format=${format.toUpperCase()}`);
     const files=[];
     for(const model of visibleModels){
         const geo=getSingleModelGeometry(model); const baseName=model.name.replace(/\.[^.]+$/,'');
@@ -2144,18 +2144,21 @@ async function downloadAllSeparate() {
         console.log(`[Download] Prepared "${baseName}.${ext}"`);
         files.push({blob,filename:`aligned_${baseName}.${ext}`});
     }
-    if(files.length >= 2){
-        // Always ZIP when more than 1 file — browsers block multiple simultaneous downloads
+    if(files.length > 5){
         if(typeof JSZip==='undefined'){alert('שגיאה: JSZip לא נטענה');return;}
-        console.log(`[Download] Zipping ${files.length} files...`);
+        console.log(`[Download] >5 files — zipping`);
         const zip=new JSZip();
         for(const f of files){zip.file(f.filename,await f.blob.arrayBuffer());}
         const zipBlob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
-        console.log(`[Download] ZIP ready (${(zipBlob.size/1024).toFixed(1)} KB), triggering download`);
+        console.log(`[Download] ZIP ready (${(zipBlob.size/1024).toFixed(1)} KB)`);
         triggerDownload(zipBlob,`digitage_models_${files.length}.zip`);
     } else {
-        console.log(`[Download] Single file, direct download`);
-        triggerDownload(files[0].blob, files[0].filename);
+        console.log(`[Download] ${files.length} files — downloading individually`);
+        for(const f of files){
+            console.log(`[Download] Triggering: ${f.filename}`);
+            triggerDownload(f.blob,f.filename);
+            await new Promise(r=>setTimeout(r,800));
+        }
     }
 }
 
