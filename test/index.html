@@ -161,7 +161,7 @@
                                         <span class="align-counter-label">נקודות מסומנות על בסיס</span>
                                         <span class="align-counter-value" id="base1Counter">0</span>
                                     </div>
-                                    <div class="align-hint" style="margin-bottom:8px">לחץ <b>קליק שמאלי</b> על פני המודל הצהוב כדי לסמן נקודות. <b>קליק ימני</b> להזזת מצלמה. לפחות 3 לדיוק מיטבי.</div>
+                                    <div class="align-hint" style="margin-bottom:8px">לחץ על פני המודל הצהוב כדי לסמן נקודות. לפחות 3 לדיוק מיטבי.</div>
                                     <div class="align-actions-row">
                                         <button class="align-btn-secondary" id="btnToStep3" onclick="alignGoToStep3()" disabled>שלב 2: מטרה →</button>
                                         <button class="align-btn-undo" onclick="undoLastPoint()" title="בטל נקודה אחרונה">↶</button>
@@ -195,7 +195,15 @@
                                         <span class="align-counter-label">נדרשות</span>
                                         <span class="align-counter-value" id="requiredPointsLabel">—</span>
                                     </div>
-                                    <div class="align-hint" style="margin-bottom:8px">סמן נקודות מקבילות על המודל הכחול. <b>קליק שמאלי</b> לסימון, <b>קליק ימני</b> לסיבוב. מספר הנקודות חייב להתאים לבסיס.</div>
+                                    <div class="align-hint" style="margin-bottom:8px">סמן נקודות מקבילות על המודל הכחול. מספר הנקודות חייב להתאים לבסיס.</div>
+
+                                    <!-- Preview base model button -->
+                                    <button id="btnPreviewBase" onclick="toggleBasePreview()"
+                                        style="width:100%;margin-bottom:8px;padding:7px 10px;background:rgba(255,213,128,0.15);border:1px solid rgba(255,213,128,0.45);border-radius:7px;color:#FFD580;font-size:0.82em;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;">
+                                        <span id="btnPreviewBaseIcon">👁</span>
+                                        <span id="btnPreviewBaseText">הצג מודל בסיס עם נקודות</span>
+                                    </button>
+
                                     <div class="align-actions-row">
                                         <button class="align-btn-primary" id="btnExecuteAlign" onclick="executeAlignment()" disabled>✓ יישר</button>
                                         <button class="align-btn-undo" onclick="undoLastPoint()" title="בטל נקודה אחרונה">↶</button>
@@ -425,7 +433,8 @@ let alignState = {
     manualBasePos: null,
     manualBaseRot: null,
     manualBaseScale: null,
-    hiddenModels: []       // ids of models hidden during isolation
+    hiddenModels: [],      // ids of models hidden during isolation
+    previewingBase: false  // true when viewing base model during target step
 };
 
 let raycaster = new THREE.Raycaster();
@@ -510,42 +519,28 @@ function updateCameraPosition() {
 function setupMouseControls() {
     const container = document.getElementById('canvas-container');
 
-    // Prevent context menu on right-click in canvas (we use right-click to rotate)
-    container.addEventListener('contextmenu', (e) => { e.preventDefault(); });
-
     container.addEventListener('mousedown', (e) => {
-        // Right-click (button 2) → always rotate camera
-        if (e.button === 2) {
-            isDragging = true;
-            previousMousePosition = { x: e.clientX, y: e.clientY };
+        if (anchorState.picking) { pickAnchorPoint(e.clientX, e.clientY); return; }
+        if (rulerState.active) { pickRulerPoint(e.clientX, e.clientY); return; }
+        if (alignState.active && alignState.mode === 'points' && alignState.selectingModel !== null) {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const currentModel = models.find(m => m.id === alignState.selectingModel);
+            if (currentModel) {
+                const meshes = currentModel.meshes || [];
+                const intersects = raycaster.intersectObjects(meshes, true);
+                if (intersects.length > 0) {
+                    selectAlignmentPoint(e.clientX, e.clientY);
+                } else {
+                    showToast('לחץ ישירות על המודל כדי לסמן נקודה', 'error');
+                }
+            }
             return;
         }
-
-        // Left-click (button 0) → pick points or other actions
-        if (e.button === 0) {
-            if (anchorState.picking) { pickAnchorPoint(e.clientX, e.clientY); return; }
-            if (rulerState.active) { pickRulerPoint(e.clientX, e.clientY); return; }
-            if (alignState.active && alignState.mode === 'points' && alignState.selectingModel !== null) {
-                const rect = container.getBoundingClientRect();
-                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                raycaster.setFromCamera(mouse, camera);
-                const currentModel = models.find(m => m.id === alignState.selectingModel);
-                if (currentModel) {
-                    const meshes = currentModel.meshes || [];
-                    const intersects = raycaster.intersectObjects(meshes, true);
-                    if (intersects.length > 0) {
-                        selectAlignmentPoint(e.clientX, e.clientY);
-                    } else {
-                        showToast('לחץ ישירות על המודל כדי לסמן נקודה', 'error');
-                    }
-                }
-                return;
-            }
-            // Left-click with no special mode → also allow rotating (fallback)
-            isDragging = true;
-            previousMousePosition = { x: e.clientX, y: e.clientY };
-        }
+        isDragging = true;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
     });
 
     container.addEventListener('mousemove', (e) => {
@@ -1119,14 +1114,11 @@ function alignStartStep2() {
     // Update base label
     document.getElementById('alignPhaseLabelBase').textContent = `לחץ על "${m1.name}" (בסיס)`;
 
-    // Apply isolation if checked - hide all other models
+    // Apply isolation if checked
     applyIsolation(id1, id2);
 
     // Tint models for visual distinction
     tintAlignModels(id1, id2);
-
-    // Show only the base model (id1) during point picking
-    isolateActivePickModel(id1);
 
     document.getElementById('canvas-container').classList.add('align-mode');
     alignSetStep(2);
@@ -1145,33 +1137,7 @@ function applyIsolation(id1, id2) {
     });
 }
 
-// Show only the model currently being picked (hide the other align model too)
-function isolateActivePickModel(activeId) {
-    if (!document.getElementById('alignIsolationToggle').checked) return;
-    models.forEach(model => {
-        if (model.id === activeId) {
-            model.group.visible = true;
-        } else if (!alignState.hiddenModels.includes(model.id)) {
-            // This is the other alignment model - hide it temporarily
-            model.group.visible = false;
-            model._tempHiddenForPick = true;
-        }
-    });
-}
-
-function restorePickIsolation() {
-    models.forEach(model => {
-        if (model._tempHiddenForPick) {
-            if (model.visible) model.group.visible = true;
-            delete model._tempHiddenForPick;
-        }
-    });
-}
-
 function restoreIsolation() {
-    // Restore temp-hidden models first
-    restorePickIsolation();
-    // Then restore the main hidden models list
     alignState.hiddenModels.forEach(id => {
         const m = models.find(m=>m.id===id);
         if (m && m.visible) m.group.visible = true;
@@ -1265,9 +1231,9 @@ function alignGoToStep3() {
     document.getElementById('requiredPointsLabel').textContent = alignState.points1.length;
     document.getElementById('btnExecuteAlign').disabled = true;
 
-    // Restore previous isolation and show only target model
-    restorePickIsolation();
-    isolateActivePickModel(alignState.model2);
+    // Reset preview state when entering step 3
+    alignState.previewingBase = false;
+    _updatePreviewBtn();
 
     alignSetStep(3);
     updateAlignCounters();
@@ -1279,13 +1245,54 @@ function alignBackToStep2() {
     alignState.points2 = [];
     removeMarkersForModel(alignState.model2);
 
-    // Restore isolation and show only base model
-    restorePickIsolation();
-    isolateActivePickModel(alignState.model1);
+    // Make sure preview mode is off when going back
+    if (alignState.previewingBase) {
+        alignState.previewingBase = false;
+        _updatePreviewBtn();
+    }
 
     document.getElementById('canvas-container').classList.add('align-mode');
     alignSetStep(2);
     updateAlignCounters();
+}
+
+// Toggle between showing the base model (with its points) and the target model
+function toggleBasePreview() {
+    alignState.previewingBase = !alignState.previewingBase;
+    const baseModel  = models.find(m => m.id === alignState.model1);
+    const targetModel = models.find(m => m.id === alignState.model2);
+
+    if (alignState.previewingBase) {
+        // Hide target, show base
+        if (targetModel) targetModel.group.visible = false;
+        if (baseModel)  baseModel.group.visible  = true;
+        // Disable point picking while previewing
+        alignState.selectingModel = null;
+    } else {
+        // Back to target picking
+        if (targetModel) targetModel.group.visible = true;
+        if (baseModel)  baseModel.group.visible  = false;
+        alignState.selectingModel = alignState.model2;
+    }
+    _updatePreviewBtn();
+}
+
+function _updatePreviewBtn() {
+    const btn  = document.getElementById('btnPreviewBase');
+    const icon = document.getElementById('btnPreviewBaseIcon');
+    const text = document.getElementById('btnPreviewBaseText');
+    if (!btn) return;
+    if (alignState.previewingBase) {
+        btn.style.background  = 'rgba(255,213,128,0.35)';
+        btn.style.borderColor = 'rgba(255,213,128,0.85)';
+        icon.textContent = '✏️';
+        text.textContent = 'חזור לסימון נקודות מטרה';
+    } else {
+        btn.style.background  = 'rgba(255,213,128,0.15)';
+        btn.style.borderColor = 'rgba(255,213,128,0.45)';
+        icon.textContent = '👁';
+        text.textContent = 'הצג מודל בסיס עם נקודות';
+    }
 }
 
 function updateAlignCounters() {
@@ -1549,15 +1556,35 @@ function cleanupAlignState() {
     alignState.markers.forEach(m => { if (m.mesh && m.mesh.parent) m.mesh.parent.remove(m.mesh); });
     alignState.markers = [];
 
+    // If we were in preview mode, make sure both models are visible before cleanup
+    if (alignState.previewingBase) {
+        const m1 = models.find(m => m.id === alignState.model1);
+        const m2 = models.find(m => m.id === alignState.model2);
+        if (m1 && m1.visible) m1.group.visible = true;
+        if (m2 && m2.visible) m2.group.visible = true;
+    }
+
     // Restore tints and isolation
     restoreTint();
     restoreIsolation();
+
+    // Reset button state
+    const btn = document.getElementById('btnPreviewBase');
+    if (btn) {
+        const icon = document.getElementById('btnPreviewBaseIcon');
+        const text = document.getElementById('btnPreviewBaseText');
+        if (icon) icon.textContent = '👁';
+        if (text) text.textContent = 'הצג מודל בסיס עם נקודות';
+        btn.style.background  = 'rgba(255,213,128,0.15)';
+        btn.style.borderColor = 'rgba(255,213,128,0.45)';
+    }
 
     // Reset state
     alignState = {
         active: false, mode: 'points', phase: 'base', model1: null, model2: null,
         selectingModel: null, points1: [], points2: [], markers: [], minPoints: 3,
-        manualBasePos: null, manualBaseRot: null, manualBaseScale: null, hiddenModels: []
+        manualBasePos: null, manualBaseRot: null, manualBaseScale: null, hiddenModels: [],
+        previewingBase: false
     };
 
     document.getElementById('alignSection').classList.add('hidden');
