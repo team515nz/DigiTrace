@@ -515,14 +515,15 @@ function setupMouseControls() {
     container.addEventListener('mousedown', (e) => {
         // Right-click always rotates
         if (e.button === 2) {
+            console.log('[Mouse] Right-click → rotate');
             isDragging = true;
             previousMousePosition = { x: e.clientX, y: e.clientY };
             return;
         }
         if (e.button !== 0) return;
 
-        if (anchorState.picking) { pickAnchorPoint(e.clientX, e.clientY); return; }
-        if (rulerState.active) { pickRulerPoint(e.clientX, e.clientY); return; }
+        if (anchorState.picking) { console.log('[Mouse] Anchor pick'); pickAnchorPoint(e.clientX, e.clientY); return; }
+        if (rulerState.active) { console.log('[Mouse] Ruler pick'); pickRulerPoint(e.clientX, e.clientY); return; }
 
         if (alignState.active && alignState.mode === 'points' && alignState.selectingModel !== null) {
             const rect = container.getBoundingClientRect();
@@ -534,9 +535,10 @@ function setupMouseControls() {
                 const meshes = currentModel.meshes || [];
                 const intersects = raycaster.intersectObjects(meshes, true);
                 if (intersects.length > 0) {
+                    console.log(`[Align] Hit model "${currentModel.name}" → pick point`);
                     selectAlignmentPoint(e.clientX, e.clientY);
                 } else {
-                    // Background click → rotate
+                    console.log('[Align] Background click → rotate');
                     isDragging = true;
                     previousMousePosition = { x: e.clientX, y: e.clientY };
                 }
@@ -830,6 +832,7 @@ function calculateGlobalBoundingBox() {
 }
 
 async function addModelFromFile(file, color, unit = 'm') {
+    console.log(`[Model] Loading "${file.name}" (${(file.size/1024).toFixed(1)} KB, unit=${unit})`);
     try {
         let geometries;
         const ext = file.name.split('.').pop().toLowerCase();
@@ -838,6 +841,8 @@ async function addModelFromFile(file, color, unit = 'm') {
         else if (ext === 'glb' || ext === 'gltf') geometries = await loadGLTFFile(file);
         else throw new Error('פורמט קובץ לא נתמך');
         if (!geometries || !geometries.length) throw new Error('לא הצלחתי לטעון את הגיאומטריה');
+
+        console.log(`[Model] "${file.name}" — ${geometries.length} geometries loaded`);
 
         const mainGroup = new THREE.Group();
         const isAligned = geometries.some(g => g.userData && g.userData.isAligned);
@@ -871,6 +876,7 @@ async function addModelFromFile(file, color, unit = 'm') {
             unit
         };
         models.push(modelData);
+        console.log(`[Model] "${file.name}" added as model id=${modelData.id}. Total models: ${models.length}`);
         restoreModelTransform(modelData);
         saveModelToIDB(modelData);
         updateModelList();
@@ -888,7 +894,7 @@ async function addModelFromFile(file, color, unit = 'm') {
         }
         return modelData;
     } catch (error) {
-        console.error('Error loading model:', error);
+        console.error(`[Model] Failed to load "${file.name}":`, error);
         throw error;
     }
 }
@@ -1105,6 +1111,8 @@ function alignStartStep2() {
     const m2 = models.find(m=>m.id===id2);
     if (!m1 || !m2) { alert('שגיאה: מודל לא נמצא'); return; }
 
+    console.log(`[Align] Start — base: "${m1.name}" (id=${id1}), target: "${m2.name}" (id=${id2})`);
+
     alignState.active = true;
     alignState.model1 = id1;
     alignState.model2 = id2;
@@ -1123,6 +1131,7 @@ function alignStartStep2() {
     applyIsolation(id1, id2);
 
     // Base phase: hide target model so only base is visible
+    console.log(`[Align] Hiding target "${m2.name}"`);
     m2.group.visible = false;
 
     // Tint models for visual distinction
@@ -1135,10 +1144,11 @@ function alignStartStep2() {
 }
 
 function applyIsolation(id1, id2) {
-    if (!document.getElementById('alignIsolationToggle').checked) return;
+    if (!document.getElementById('alignIsolationToggle').checked) { console.log('[Align] Isolation toggle off — skipping'); return; }
     alignState.hiddenModels = [];
     models.forEach(model => {
         if (model.id !== id1 && model.id !== id2 && model.visible) {
+            console.log(`[Align] Isolation: hiding unrelated model "${model.name}"`);
             model.group.visible = false;
             alignState.hiddenModels.push(model.id);
         }
@@ -1223,6 +1233,8 @@ function alignGoToStep3() {
     const m1 = models.find(m=>m.id===alignState.model1);
     const m2 = models.find(m=>m.id===alignState.model2);
 
+    console.log(`[Align] → Step 3 (target). Base points: ${alignState.points1.length}. Hiding base "${m1?.name}", showing target "${m2?.name}"`);
+
     document.getElementById('alignPhaseLabelTarget').textContent =
         alignState.mode === 'points'
             ? `לחץ על "${m2?m2.name:'מטרה'}" לסימון ${alignState.points1.length} נקודות`
@@ -1254,6 +1266,8 @@ function alignBackToStep2() {
 
     const m1 = models.find(m=>m.id===alignState.model1);
     const m2 = models.find(m=>m.id===alignState.model2);
+
+    console.log(`[Align] ← Back to Step 2 (base). Keeping ${alignState.points2.length} target points. Showing base "${m1?.name}", hiding target "${m2?.name}"`);
 
     // Base phase: show base, hide target
     if (m1) m1.group.visible = true;
@@ -1293,9 +1307,11 @@ function selectAlignmentPoint(screenX, screenY) {
 
     if (alignState.phase === 'base') {
         alignState.points1.push(point);
+        console.log(`[Align] Base point #${alignState.points1.length} on "${currentModel.name}":`, point);
         add3DPointMarker(point, `M1-${alignState.points1.length}`, currentModel.id);
     } else {
         alignState.points2.push(point);
+        console.log(`[Align] Target point #${alignState.points2.length} on "${currentModel.name}":`, point);
         add3DPointMarker(point, `M2-${alignState.points2.length}`, currentModel.id);
     }
     updateAlignCounters();
@@ -1464,6 +1480,8 @@ function executeAlignment() {
     const model2 = models.find(m=>m.id===alignState.model2);
     if (!model1 || !model2) return;
 
+    console.log(`[Align] Executing alignment: "${model1.name}" → "${model2.name}", ${numPoints} point pairs`);
+
     const targetPoints = alignState.points1.slice(0, numPoints);
     const sourcePoints = alignState.points2.slice(0, numPoints);
     const worldToLocal2 = model2.group.matrixWorld.clone().invert();
@@ -1485,6 +1503,8 @@ function executeAlignment() {
     targetCentered.forEach(v=>targetScale+=v.lengthSq());
     const scale = Math.sqrt(targetScale/sourceScale);
 
+    console.log(`[Align] Scale factor: ${scale.toFixed(4)}`);
+
     model2.group.scale.set(scale,scale,scale);
     const euler = new THREE.Euler().setFromQuaternion(rotation);
     model2.group.rotation.copy(euler);
@@ -1500,6 +1520,8 @@ function executeAlignment() {
         totalError += transformed.distanceTo(targetPoints[i]);
     }
     const avgError = totalError / numPoints;
+
+    console.log(`[Align] Done. Avg error: ${avgError.toFixed(6)}`);
 
     // Update base model if this was aligned to base
     if (baseModelId === null) {
@@ -1521,6 +1543,7 @@ function alignFinish(msg) {
 }
 
 function cleanupAlignState() {
+    console.log('[Align] Cleanup — restoring models, removing markers');
     // Remove 3D markers
     alignState.markers.forEach(m => { if (m.mesh && m.mesh.parent) m.mesh.parent.remove(m.mesh); });
     alignState.markers = [];
@@ -1528,7 +1551,7 @@ function cleanupAlignState() {
     // Restore visibility of both alignment models (may have been hidden during base/target phases)
     [alignState.model1, alignState.model2].forEach(id => {
         const m = models.find(m => m.id === id);
-        if (m && m.visible) m.group.visible = true;
+        if (m && m.visible) { console.log(`[Align] Restoring visibility of "${m.name}"`); m.group.visible = true; }
     });
 
     // Restore tints and isolation
