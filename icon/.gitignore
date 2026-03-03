@@ -1,0 +1,14 @@
+# --- VS Code (Clean Sweep) ---
+.vscode/
+.history/
+*.code-workspace
+.claude
+# --- Operating System Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Web Development ---
+node_modules/
+*.log
+.env
