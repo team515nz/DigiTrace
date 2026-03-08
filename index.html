@@ -7,6 +7,22 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="icon.png" type="image/png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Firebase + Google Analytics -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyBSrqxNJkKVbBpcMrvR4hMCVbazuLVv6go",
+            authDomain: "digitrace515.firebaseapp.com",
+            projectId: "digitrace515",
+            storageBucket: "digitrace515.firebasestorage.app",
+            messagingSenderId: "461065893877",
+            appId: "1:461065893877:web:40d7c05821b5ba8bbf12bc",
+            measurementId: "G-JBHJR5DPJ1"
+        };
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+    </script>
 </head>
 <body>
     <div class="container">
