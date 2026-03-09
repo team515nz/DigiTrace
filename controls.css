@@ -1,0 +1,118 @@
+/* ─── Controls Bar ──────────────────────────────────────────────── */
+.controls {
+    padding: 15px;
+    background: #fff8f0;
+    border-bottom: 2px solid #8B4513;
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.controls-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.fullscreen-btn {
+    background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: all 0.3s;
+    z-index: 10;
+    flex-shrink: 0;
+}
+
+.fullscreen-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(139, 69, 19, 0.3);
+}
+
+.help-btn {
+    position: absolute;
+    top: 15px;
+    left: 150px;
+    background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: all 0.3s;
+    z-index: 10;
+}
+
+.help-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(30, 60, 114, 0.3);
+}
+
+/* ─── Control Groups & Sliders ──────────────────────────────────── */
+.control-group {
+    margin-bottom: 12px;
+}
+
+.control-group label {
+    display: block;
+    color: #8B4513;
+    font-weight: bold;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+.slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 5px;
+    background: #ddd;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #8B4513;
+    cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #8B4513;
+    cursor: pointer;
+}
+
+.value-display {
+    display: inline-block;
+    background: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    margin-right: 8px;
+    font-weight: bold;
+    color: #8B4513;
+    font-size: 0.85em;
+}
+
+.loading-message {
+    background: #fffacd;
+    padding: 8px;
+    border-radius: 5px;
+    margin-top: 8px;
+    text-align: center;
+    font-size: 0.85em;
+    color: #8B4513;
+}
