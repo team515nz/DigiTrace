@@ -374,6 +374,133 @@
             </div>
         </div>
     </div>
+</div>
+
+<script type="text/markdown" id="readmeTemplate"></script>
+<script>
+    fetch('README.md')
+        .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+        .then(data => {
+            document.getElementById('readmeTemplate').textContent = data;
+            document.getElementById('helpContent').innerHTML = marked.parse(data);
+        })
+        .catch(() => { document.getElementById('helpContent').innerHTML = "שגיאה בטעינת העזרה."; });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+let scene, camera, renderer;
+let rulerScene;
+let models = [];
+let modelCounter = 0;
+let globalBoundingBox = null;
+let isDragging = false;
+let previousMousePosition = { x: 0, y: 0 };
+let cameraRotation = { horizontal: 45, vertical: 30 };
+let cameraDistance = 8;
+let baseModelId = null;
+let alignState = {
+    active: false,
+    mode: 'points',
+    phase: 'base',
+    model1: null,
+    model2: null,
+    selectingModel: null,
+    points1: [],
+    points2: [],
+    markers: [],
+    minPoints: 3,
+    manualBasePos: null,
+    manualBaseRot: null,
+    manualBaseScale: null,
+    hiddenModels: []
+};
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+const MODEL_COLORS = [
+    { hex: 0xFF6B6B, css: '#FF6B6B', name: 'אדום' },
+    { hex: 0x4ECDC4, css: '#4ECDC4', name: 'טורקיז' },
+    { hex: 0x45B7D1, css: '#45B7D1', name: 'כחול' },
+    { hex: 0xFFA07A, css: '#FFA07A', name: 'כתום' },
+    { hex: 0x98D8C8, css: '#98D8C8', name: 'ירוק' },
+    { hex: 0xF7DC6F, css: '#F7DC6F', name: 'צהוב' },
+    { hex: 0xBB8FCE, css: '#BB8FCE', name: 'סגול' },
+    { hex: 0xF0B27A, css: '#F0B27A', name: 'אפרסק' },
+    { hex: 0x82E0AA, css: '#82E0AA', name: 'ירוק בהיר' },
+    { hex: 0x85C1E9, css: '#85C1E9', name: 'תכלת' },
+    { hex: 0xF1948A, css: '#F1948A', name: 'ורוד' },
+    { hex: 0xF9E79F, css: '#F9E79F', name: 'שמנת' },
+];
+function getColorInfo(hexNum) {
+    const found = MODEL_COLORS.find(c => c.hex === hexNum);
+    if (found) return { name: found.name, hex: found.css };
+    return { name: 'מותאם', hex: '#' + ('000000' + hexNum.toString(16)).slice(-6) };
+}
+function changeModelColor(id, hexNum) {
+    const model = models.find(m => m.id === id);
+    if (!model) return;
+    model.color = hexNum;
+    const cssColor = getColorInfo(hexNum).hex;
+    model.meshes.forEach(mesh => { if (mesh.material) mesh.material.color.set(cssColor); });
+    updateModelList();
+    saveSession();
+}
+function initThreeJS() {
+    const container = document.getElementById('canvas-container');
+    const instruction = container.querySelector('.instruction');
+    if (instruction) instruction.remove();
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    const aspect = container.clientWidth / container.clientHeight;
+    camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+    updateCameraPosition();
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 5);
+    scene.add(directionalLight);
+
+    rulerScene = new THREE.Scene();
+    raycaster = new THREE.Raycaster();
+    setupMouseControls();
+    animate();
+}
+function updateCameraPosition() {
+    const horizontalAngle = (cameraRotation.horizontal * Math.PI) / 180;
+    const verticalAngle = (cameraRotation.vertical * Math.PI) / 180;
+    camera.position.x = Math.sin(horizontalAngle) * Math.cos(verticalAngle) * cameraDistance;
+    camera.position.y = Math.sin(verticalAngle) * cameraDistance;
+    camera.position.z = Math.cos(horizontalAngle) * Math.cos(verticalAngle) * cameraDistance;
+    camera.lookAt(0, 0, 0);
+}
+function setupMouseControls() {
+    const container = document.getElementById('canvas-container');
+    container.addEventListener('contextmenu', (e) => e.preventDefault());
+    container.addEventListener('mousedown', (e) => {
+
+        if (e.button === 2) {
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+            return;
+        }
+        if (e.button !== 0) return;
+        if (anchorState.picking) { pickAnchorPoint(e.clientX, e.clientY); return; }
+        if (rulerState.active) { pickRulerPoint(e.clientX, e.clientY); return; }
+        if (alignState.active && alignState.mode === 'points' && alignState.selectingModel !== null) {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const currentModel = models.find(m => m.id === alignState.selectingModel);
+            if (currentModel) {
+                const meshes = currentModel.meshes || [];
+                const intersects = raycaster.intersectObjects(meshes, true);
+                if (intersects.length > 0) {
+                    selectAlignmentPoint(e.clientX, e.clientY);
+                } else {
 
     <script type="text/markdown" id="readmeTemplate"></script>
 
