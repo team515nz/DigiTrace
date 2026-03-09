@@ -2112,26 +2112,36 @@ function geometryToArrayBuffer(geometry) {
     return buf;
 }
 function arrayBufferToGeometry(buf) {
-    const posLen=new Int32Array(buf,0,1)[0],normLen=new Int32Array(buf,4,1)[0],idxLen=new Int32Array(buf,8,1)[0];
+    // Support 3 formats: old-13 (posLen,normLen,idxLen packed 13B), old-16 (padded), new-20 (with colorLen)
+    const i32=new Int32Array(buf,0,Math.min(5,Math.floor(buf.byteLength/4)));
+    const posLen=i32[0],normLen=i32[1],idxLen=i32[2];
     const flag=new Uint8Array(buf,12,1)[0];
-    const expectedOld=13+posLen*4+normLen*4+idxLen*(flag?4:2);
-    const HEADER=(buf.byteLength===expectedOld)?13:16;
+    const expectedOld13=13+posLen*4+normLen*4+idxLen*(flag?4:2);
+    const expectedOld16=16+posLen*4+normLen*4+idxLen*(flag?4:2);
+    let HEADER,colorLen=0;
+    if(buf.byteLength===expectedOld13){HEADER=13;}
+    else if(buf.byteLength===expectedOld16){HEADER=16;}
+    else{HEADER=20;colorLen=i32[3]||0;}
     let offset=HEADER;
     const posData=new Float32Array(buf.slice(offset,offset+posLen*4));offset+=posLen*4;
     let normData=null;
     if(normLen>0){normData=new Float32Array(buf.slice(offset,offset+normLen*4));offset+=normLen*4;}
     let idxData=null;
-    if(idxLen>0){const bytes=idxLen*(flag?4:2);idxData=flag?new Uint32Array(buf.slice(offset,offset+bytes)):new Uint16Array(buf.slice(offset,offset+bytes));}
+    if(idxLen>0){const bytes=idxLen*(flag?4:2);idxData=flag?new Uint32Array(buf.slice(offset,offset+bytes)):new Uint16Array(buf.slice(offset,offset+bytes));offset+=bytes;}
+    let colorData=null;
+    if(colorLen>0){colorData=new Float32Array(buf.slice(offset,offset+colorLen*4));}
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(posData,3));
     if(normData)geo.setAttribute('normal',new THREE.Float32BufferAttribute(normData,3));
     if(idxData)geo.setIndex(new THREE.BufferAttribute(idxData,1));
+    if(colorData){geo.setAttribute('color',new THREE.Float32BufferAttribute(colorData,3));geo.userData.hasVertexColors=true;}
     return geo;
 }
 async function saveModelToIDB(model) {
     try {
         const geoBuffers=model.originalGeometries.filter(g=>g&&g.attributes&&g.attributes.position).map(g=>geometryToArrayBuffer(g));
-        await idbPut({name:model.name,color:model.color,unit:model.unit||'m',geoBuffers});
+        const originalMeshColors=model.originalMeshColors||[];
+        await idbPut({name:model.name,color:model.color,unit:model.unit||'m',geoBuffers,originalMeshColors});
     }catch(e){console.warn('saveModelToIDB error:',e);}
 }
 async function saveSession() {
@@ -2180,8 +2190,11 @@ async function restoreFullSession() {
             try {
                 const mainGroup=new THREE.Group();
                 const color=meta.color||MODEL_COLORS[models.length%MODEL_COLORS.length].hex;
-                idbRec.geoBuffers.forEach(buf=>{
+                const savedMeshColors=idbRec.originalMeshColors||[];
+                idbRec.geoBuffers.forEach((buf,i)=>{
                     const geometry=arrayBufferToGeometry(buf);
+                    const hasVtx=!!geometry.userData.hasVertexColors;
+                    const savedMC=savedMeshColors[i]||null;
                     const material=new THREE.MeshStandardMaterial({color,transparent:true,opacity:0.85,side:THREE.DoubleSide,flatShading:false});
                     mainGroup.add(new THREE.Mesh(geometry,material));
                 });
@@ -2191,8 +2204,25 @@ async function restoreFullSession() {
                 mainGroup.scale.set(meta.scale.x,meta.scale.y,meta.scale.z);
                 mainGroup.visible=meta.visible;
                 scene.add(mainGroup);
-                const restoredModel={id:modelCounter++,name:meta.name,date:meta.date,group:mainGroup,meshes:mainGroup.children,visible:meta.visible,originalGeometries:mainGroup.children.map(m=>m.geometry.clone()),color,unit:meta.unit||'m',useOriginalColor:meta.useOriginalColor||false};
-                if(restoredModel.useOriginalColor){restoredModel.meshes.forEach(mesh=>{if(mesh.material)mesh.material.color.set(0xffffff);});}
+                // Rebuild originalMeshColors from IDB (has vertex type) + geometry userData
+                const originalMeshColors=mainGroup.children.map((mesh,i)=>{
+                    const saved=savedMeshColors[i]||null;
+                    if(saved&&saved.type==='vertex')return {type:'vertex'};
+                    if(saved&&saved.type==='material')return {type:'material',color:saved.color};
+                    if(mesh.geometry&&mesh.geometry.userData.hasVertexColors)return {type:'vertex'};
+                    return null;
+                });
+                const hasOriginalColor=originalMeshColors.some(mc=>mc!==null);
+                const restoredModel={id:modelCounter++,name:meta.name,date:meta.date,group:mainGroup,meshes:mainGroup.children,visible:meta.visible,originalGeometries:mainGroup.children.map(m=>m.geometry.clone()),color,unit:meta.unit||'m',useOriginalColor:meta.useOriginalColor||false,hasOriginalColor,originalMeshColors};
+                // If was in original color mode, re-apply it
+                if(restoredModel.useOriginalColor&&hasOriginalColor){
+                    restoredModel.meshes.forEach((mesh,i)=>{
+                        if(!mesh.material)return;
+                        const orig=originalMeshColors[i];
+                        if(orig&&orig.type==='vertex'){mesh.material.vertexColors=true;mesh.material.color.set(0xffffff);mesh.material.needsUpdate=true;}
+                        else if(orig&&orig.type==='material'){mesh.material.color.set(orig.color);mesh.material.needsUpdate=true;}
+                    });
+                }
                 models.push(restoredModel);
             }catch(e){console.warn('restore model error:',meta.name,e);}
         }
