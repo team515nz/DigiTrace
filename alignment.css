@@ -1,0 +1,534 @@
+/* ─── Alignment Panel ───────────────────────────────────────────── */
+#alignSection {
+    background: #0f1117;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 2px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.align-panel-header {
+    background: linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.align-panel-title {
+    font-size: 0.88em;
+    font-weight: 700;
+    color: #e2e8f0;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.align-panel-title .title-icon { font-size: 1.1em; }
+
+.align-close-btn {
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #f87171;
+    border-radius: 6px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.align-close-btn:hover {
+    background: rgba(239,68,68,0.3);
+    color: white;
+}
+
+/* ─── Step Indicator ────────────────────────────────────────────── */
+.align-steps-track {
+    display: flex;
+    padding: 10px 14px;
+    gap: 0;
+    background: #0f1117;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.align-step-dot {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+}
+
+.align-step-dot:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    right: -50%;
+    height: 1px;
+    background: rgba(255,255,255,0.12);
+    z-index: 0;
+}
+
+.align-step-dot.active::after,
+.align-step-dot.done::after {
+    background: #3b82f6;
+}
+
+.step-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.15);
+    font-size: 0.65em;
+    font-weight: 700;
+    color: rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s;
+}
+
+.align-step-dot.active .step-circle {
+    background: #3b82f6;
+    border-color: #60a5fa;
+    color: white;
+    box-shadow: 0 0 10px rgba(59,130,246,0.5);
+}
+
+.align-step-dot.done .step-circle {
+    background: #10b981;
+    border-color: #34d399;
+    color: white;
+}
+
+.step-label {
+    font-size: 0.6em;
+    color: rgba(255,255,255,0.3);
+    text-align: center;
+    white-space: nowrap;
+    transition: all 0.3s;
+}
+
+.align-step-dot.active .step-label { color: #93c5fd; }
+.align-step-dot.done .step-label { color: #6ee7b7; }
+
+/* ─── Panel Body ────────────────────────────────────────────────── */
+.align-panel-body { padding: 12px 14px; }
+
+.align-step-page { display: none; }
+
+.align-step-page.active {
+    display: block;
+    animation: stepFadeIn 0.25s ease;
+}
+
+@keyframes stepFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Model Selector Cards ──────────────────────────────────────── */
+.align-model-selector { margin-bottom: 10px; }
+
+.align-model-selector-label {
+    font-size: 0.72em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.label-base   { color: #f59e0b; }
+.label-target { color: #60a5fa; }
+
+.align-model-select {
+    width: 100%;
+    padding: 7px 10px;
+    background: #1a1f2e;
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 7px;
+    font-size: 0.84em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.align-model-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+/* ─── Hint ──────────────────────────────────────────────────────── */
+.align-hint {
+    font-size: 0.74em;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+    margin-bottom: 10px;
+    padding: 7px 9px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 6px;
+    border-right: 2px solid rgba(255,255,255,0.1);
+}
+
+/* ─── Mode Tabs ─────────────────────────────────────────────────── */
+.align-mode-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 12px;
+}
+
+.align-mode-tab {
+    flex: 1;
+    padding: 7px 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 7px;
+    color: rgba(255,255,255,0.45);
+    font-size: 0.76em;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.align-mode-tab:hover {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+}
+
+.align-mode-tab.active {
+    background: rgba(59,130,246,0.2);
+    border-color: rgba(59,130,246,0.5);
+    color: #93c5fd;
+}
+
+/* ─── Sub-panel & Phase Badge ───────────────────────────────────── */
+.align-subpanel { display: none; }
+.align-subpanel.active { display: block; }
+
+.align-phase-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    margin-bottom: 8px;
+    font-size: 0.78em;
+    font-weight: 600;
+}
+
+.phase-badge-base {
+    background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.3);
+    color: #fcd34d;
+}
+
+.phase-badge-target {
+    background: rgba(59,130,246,0.15);
+    border: 1px solid rgba(59,130,246,0.3);
+    color: #93c5fd;
+}
+
+.phase-badge-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulseDot 1.5s ease-in-out infinite;
+}
+
+.phase-badge-base   .phase-badge-dot { background: #f59e0b; }
+.phase-badge-target .phase-badge-dot { background: #3b82f6; }
+
+@keyframes pulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.7); }
+}
+
+/* ─── Counter Row ───────────────────────────────────────────────── */
+.align-counter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 9px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.align-counter-label {
+    font-size: 0.74em;
+    color: rgba(255,255,255,0.45);
+}
+
+.align-counter-value {
+    font-size: 0.85em;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-variant-numeric: tabular-nums;
+}
+
+.align-counter-value.has-points { color: #34d399; }
+
+/* ─── Action Buttons ────────────────────────────────────────────── */
+.align-actions-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.align-btn-primary {
+    flex: 1;
+    padding: 9px 10px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.align-btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16,185,129,0.35);
+}
+
+.align-btn-primary:disabled {
+    background: rgba(100,116,139,0.3);
+    color: rgba(255,255,255,0.3);
+    cursor: not-allowed;
+}
+
+.align-btn-secondary {
+    flex: 1;
+    padding: 9px 10px;
+    background: rgba(59,130,246,0.15);
+    border: 1px solid rgba(59,130,246,0.35);
+    color: #93c5fd;
+    border-radius: 8px;
+    font-size: 0.8em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.align-btn-secondary:hover:not(:disabled) {
+    background: rgba(59,130,246,0.25);
+    transform: translateY(-1px);
+}
+
+.align-btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.align-btn-undo {
+    padding: 9px 12px;
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.25);
+    color: #fcd34d;
+    border-radius: 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.align-btn-undo:hover { background: rgba(245,158,11,0.22); }
+
+.align-btn-cancel {
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid rgba(239,68,68,0.25);
+    color: rgba(239,68,68,0.6);
+    border-radius: 7px;
+    font-size: 0.76em;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+    letter-spacing: 0.03em;
+}
+
+.align-btn-cancel:hover {
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+    border-color: rgba(239,68,68,0.45);
+}
+
+/* ─── Isolation Banner ──────────────────────────────────────────── */
+#alignIsolationBanner {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15,17,23,0.88);
+    border: 1px solid rgba(59,130,246,0.4);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.78em;
+    color: #93c5fd;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+    backdrop-filter: blur(6px);
+    display: none;
+}
+
+#alignIsolationBanner.visible {
+    display: block;
+    animation: bannerIn 0.3s ease;
+}
+
+@keyframes bannerIn {
+    from { opacity: 0; top: 4px; }
+    to   { opacity: 1; top: 10px; }
+}
+
+/* ─── Misc Alignment Utilities ──────────────────────────────────── */
+.align-separator {
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+    margin: 10px 0;
+}
+
+.isolation-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    margin-bottom: 8px;
+}
+
+.isolation-toggle-label {
+    font-size: 0.76em;
+    color: rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 34px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggle-track {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.25s;
+    border: 1px solid rgba(255,255,255,0.12);
+}
+
+.toggle-switch input:checked + .toggle-track {
+    background: #3b82f6;
+    border-color: #60a5fa;
+}
+
+.toggle-track::before {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.25s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.toggle-switch input:checked + .toggle-track::before {
+    transform: translateX(16px);
+}
+
+/* ─── Progress Bar ──────────────────────────────────────────────── */
+.align-progress-bar {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 6px 0;
+}
+
+.align-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #10b981);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+/* ─── Legacy alignment styles ───────────────────────────────────── */
+.align-section {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 14px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+.align-section h4 {
+    color: #7cb9ff;
+    margin-bottom: 12px;
+    font-size: 0.95em;
+}
+
+.align-execute-btn {
+    padding: 10px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s;
+    font-size: 0.85em;
+}
+
+.align-execute-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.align-execute-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.cancel-btn { background: #f44336; }
+.cancel-btn:hover { background: #d32f2f; }
