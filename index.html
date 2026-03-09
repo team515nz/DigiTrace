@@ -445,41 +445,8 @@ function changeModelColor(id, hexNum) {
     const model = models.find(m => m.id === id);
     if (!model) return;
     model.color = hexNum;
-    if (!model.useOriginalColor) {
-        const cssColor = getColorInfo(hexNum).hex;
-        model.meshes.forEach(mesh => { if (mesh.material) mesh.material.color.set(cssColor); });
-    }
-    updateModelList();
-    saveSession();
-}
-function toggleModelColorMode(id) {
-    const model = models.find(m => m.id === id);
-    if (!model || !model.hasOriginalColor) return;
-    model.useOriginalColor = !model.useOriginalColor;
-    if (model.useOriginalColor) {
-        model.meshes.forEach((mesh, i) => {
-            if (!mesh.material) return;
-            const orig = model.originalMeshColors && model.originalMeshColors[i];
-            if (orig && orig.type === 'vertex') {
-                mesh.material.vertexColors = true;
-                mesh.material.color.set(0xffffff);
-                mesh.material.needsUpdate = true;
-            } else if (orig && orig.type === 'material') {
-                mesh.material.vertexColors = false;
-                mesh.material.color.set(orig.color);
-                mesh.material.needsUpdate = true;
-            }
-        });
-    } else {
-        const cssColor = getColorInfo(model.color).hex;
-        model.meshes.forEach(mesh => {
-            if (mesh.material) {
-                mesh.material.vertexColors = false;
-                mesh.material.color.set(cssColor);
-                mesh.material.needsUpdate = true;
-            }
-        });
-    }
+    const cssColor = getColorInfo(hexNum).hex;
+    model.meshes.forEach(mesh => { if (mesh.material) mesh.material.color.set(cssColor); });
     updateModelList();
     saveSession();
 }
@@ -500,6 +467,7 @@ function initThreeJS() {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 10, 5);
     scene.add(directionalLight);
+
     rulerScene = new THREE.Scene();
     raycaster = new THREE.Raycaster();
     setupMouseControls();
@@ -602,29 +570,16 @@ function loadOBJFile(file) {
 }
 function parseOBJ(text) {
     const vertices = [];
-    const vertexColors = [];
     const faces = [];
     const lines = text.split('\n');
     let vertexCount = 0;
-    let hasVertexColors = false;
     for (let line of lines) {
         line = line.trim();
         if (line.startsWith('v ')) {
             const parts = line.split(/\s+/);
             if (parts.length >= 4) {
                 const x = parseFloat(parts[1]), y = parseFloat(parts[2]), z = parseFloat(parts[3]);
-                if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-                    vertices.push(x, y, z);
-                    if (parts.length >= 7) {
-                        const r = parseFloat(parts[4]), g = parseFloat(parts[5]), b = parseFloat(parts[6]);
-                        if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-                            const scale = (r > 1 || g > 1 || b > 1) ? 1/255 : 1;
-                            vertexColors.push(r*scale, g*scale, b*scale);
-                            hasVertexColors = true;
-                        } else { vertexColors.push(1,1,1); }
-                    } else { vertexColors.push(1,1,1); }
-                    vertexCount++;
-                }
+                if (!isNaN(x) && !isNaN(y) && !isNaN(z)) { vertices.push(x, y, z); vertexCount++; }
             }
         }
     }
@@ -649,10 +604,6 @@ function parseOBJ(text) {
     if (vertices.length === 0) throw new Error('לא נמצאו vertices בקובץ');
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    if (hasVertexColors) {
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(vertexColors, 3));
-        geometry.userData.hasVertexColors = true;
-    }
     if (faces.length > 0) geometry.setIndex(faces);
     geometry.computeVertexNormals();
     return geometry;
@@ -752,30 +703,14 @@ function parseGLB(arrayBuffer) {
     return gltf;
 }
 function parseGLTF(gltf) {
-    const results = [];
+    const geometries = [];
     if (!gltf.meshes || !gltf.meshes.length) throw new Error('לא נמצאו meshes');
     gltf.meshes.forEach(mesh => {
         mesh.primitives.forEach(primitive => {
-            try {
-                const result = parsePrimitive(primitive, gltf);
-                if (result) results.push(result);
-            } catch(e) {}
+            try { const g = parsePrimitive(primitive, gltf); if (g) geometries.push(g); } catch(e) {}
         });
     });
-    // attach originalColor from GLTF materials
-    results.forEach((result, i) => {
-        const prim = gltf.meshes.flatMap(m => m.primitives)[i];
-        if (prim && prim.material !== undefined && gltf.materials) {
-            const mat = gltf.materials[prim.material];
-            const bcf = mat && mat.pbrMetallicRoughness && mat.pbrMetallicRoughness.baseColorFactor;
-            if (bcf) {
-                const r = Math.round(bcf[0] * 255), g2 = Math.round(bcf[1] * 255), b = Math.round(bcf[2] * 255);
-                const isWhite = (r > 245 && g2 > 245 && b > 245);
-                if (!isWhite) result.originalColor = (r << 16) | (g2 << 8) | b;
-            }
-        }
-    });
-    return results.map(r => { r.geometry.userData.originalColor = r.originalColor || null; return r.geometry; });
+    return geometries;
 }
 function parsePrimitive(primitive, gltf) {
     const geometry = new THREE.BufferGeometry();
@@ -786,32 +721,12 @@ function parsePrimitive(primitive, gltf) {
         const normals = getAccessorData(gltf.accessors[primitive.attributes.NORMAL], gltf);
         geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     }
-    if (primitive.attributes.COLOR_0 !== undefined) {
-        try {
-            const acc = gltf.accessors[primitive.attributes.COLOR_0];
-            const colors = getAccessorData(acc, gltf);
-            const isVec4 = acc.type === 'VEC4';
-            // Normalize: uint8 (5121) and uint16 (5123) need to be divided
-            const normalize = (acc.normalized || acc.componentType === 5121) ? 1/255
-                            : (acc.componentType === 5123) ? 1/65535 : 1;
-            const stride = isVec4 ? 4 : 3;
-            const count = Math.floor(colors.length / stride);
-            const rgb = new Float32Array(count * 3);
-            for (let i = 0; i < count; i++) {
-                rgb[i*3]   = colors[i*stride]   * normalize;
-                rgb[i*3+1] = colors[i*stride+1] * normalize;
-                rgb[i*3+2] = colors[i*stride+2] * normalize;
-            }
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(rgb, 3));
-            geometry.userData.hasVertexColors = true;
-        } catch(e) {}
-    }
     if (primitive.indices !== undefined) {
         const indices = getAccessorData(gltf.accessors[primitive.indices], gltf);
         geometry.setIndex(new THREE.BufferAttribute(indices, 1));
     }
     if (primitive.attributes.NORMAL === undefined) geometry.computeVertexNormals();
-    return { geometry };
+    return geometry;
 }
 function getAccessorData(accessor, gltf) {
     const bufferView = gltf.bufferViews[accessor.bufferView];
@@ -874,19 +789,11 @@ async function addModelFromFile(file, color, unit = 'm') {
         if (!geometries || !geometries.length) throw new Error('לא הצלחתי לטעון את הגיאומטריה');
         const mainGroup = new THREE.Group();
         const isAligned = geometries.some(g => g.userData && g.userData.isAligned);
-        let hasOriginalColor = false;
-        const originalMeshColors = []; // per-mesh: {type:'vertex'} or {type:'material', color:0xRRGGBB} or null
         geometries.forEach(geometry => {
-            if (!geometry || !geometry.attributes.position) { originalMeshColors.push(null); return; }
+            if (!geometry || !geometry.attributes.position) return;
             if (!isAligned) geometry.center();
             geometry.computeBoundingBox();
-            const hasVtxColor = !!geometry.userData.hasVertexColors;
-            const origColor = geometry.userData.originalColor; // number or null
-            const hasMeshColor = origColor !== null && origColor !== undefined;
-            if (hasVtxColor || hasMeshColor) hasOriginalColor = true;
-            originalMeshColors.push(hasVtxColor ? {type:'vertex'} : (hasMeshColor ? {type:'material', color: origColor} : null));
             const material = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, flatShading: false });
-            if (hasVtxColor) material.vertexColors = false; // start with DigiTrace color
             mainGroup.add(new THREE.Mesh(geometry, material));
         });
         if (!mainGroup.children.length) throw new Error('לא נמצאו meshes תקינים');
@@ -907,10 +814,7 @@ async function addModelFromFile(file, color, unit = 'm') {
             visible: true,
             originalGeometries: mainGroup.children.map(mesh => mesh.geometry.clone()),
             color,
-            unit,
-            useOriginalColor: false,
-            hasOriginalColor,
-            originalMeshColors
+            unit
         };
         models.push(modelData);
         restoreModelTransform(modelData);
@@ -975,7 +879,6 @@ function updateModelList() {
                     <span class="visibility-toggle" onclick="rotateModelY(${model.id})">🔄Y</span>
                     <span class="visibility-toggle" onclick="rotateModelX(${model.id})">🔄X</span>
                     <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">🔄Z</span>
-                    ${model.hasOriginalColor ? `<span class="visibility-toggle ${model.useOriginalColor?'visible':''}" title="${model.useOriginalColor?'עבור לצבע DigiTrace':'הצג צבע מקורי'}" onclick="toggleModelColorMode(${model.id})">${model.useOriginalColor?'🎨':'⬜'}</span>` : ''}
                     <button class="set-base-btn ${isBase?'active':''}" onclick="setBaseModel(${model.id})">${isBase?'🔒 בסיס':'⚓ קבע בסיס'}</button>
                     <span class="visibility-toggle" title="הורד מודל זה" onclick="downloadSingleModel(${model.id})">📥</span>
                     <span class="delete-btn" onclick="deleteModel(${model.id})">🗑️</span>
@@ -2092,56 +1995,41 @@ function geometryToArrayBuffer(geometry) {
     const positions=geometry.attributes.position.array;
     const normals=geometry.attributes.normal?geometry.attributes.normal.array:null;
     const indices=geometry.index?geometry.index.array:null;
-    const colors=geometry.attributes.color?geometry.attributes.color.array:null;
-    const posLen=positions.length,normLen=normals?normals.length:0,idxLen=indices?indices.length:0,colorLen=colors?colors.length:0;
+    const posLen=positions.length,normLen=normals?normals.length:0,idxLen=indices?indices.length:0;
     const idxIsU32=!!(indices&&idxLen>65535);
-    // HEADER: 5×Int32 = 20 bytes: posLen, normLen, idxLen, flag+colorLen packed
-    const HEADER=20;
+    const HEADER=16;
     const posBytes=new Float32Array(positions),normBytes=normals?new Float32Array(normals):new Float32Array(0);
     const idxBytes=idxLen>0?(idxIsU32?new Uint32Array(indices):new Uint16Array(indices)):new Uint16Array(0);
-    const colorBytes=colors?new Float32Array(colors):new Float32Array(0);
-    const totalBytes=HEADER+posBytes.byteLength+normBytes.byteLength+idxBytes.byteLength+colorBytes.byteLength;
+    const totalBytes=HEADER+posBytes.byteLength+normBytes.byteLength+idxBytes.byteLength;
     const buf=new ArrayBuffer(totalBytes); const view=new Uint8Array(buf);
-    new Int32Array(buf,0,4).set([posLen,normLen,idxLen,colorLen]);
-    new Uint8Array(buf,16,1)[0]=idxIsU32?1:0;
+    new Int32Array(buf,0,3).set([posLen,normLen,idxLen]); new Uint8Array(buf,12,1)[0]=idxIsU32?1:0;
     let offset=HEADER;
     view.set(new Uint8Array(posBytes.buffer),offset);offset+=posBytes.byteLength;
     if(normBytes.byteLength){view.set(new Uint8Array(normBytes.buffer),offset);offset+=normBytes.byteLength;}
-    if(idxBytes.byteLength){view.set(new Uint8Array(idxBytes.buffer),offset);offset+=idxBytes.byteLength;}
-    if(colorBytes.byteLength)view.set(new Uint8Array(colorBytes.buffer),offset);
+    if(idxBytes.byteLength)view.set(new Uint8Array(idxBytes.buffer),offset);
     return buf;
 }
 function arrayBufferToGeometry(buf) {
-    // Support 3 formats: old-13 (posLen,normLen,idxLen packed 13B), old-16 (padded), new-20 (with colorLen)
-    const i32=new Int32Array(buf,0,Math.min(5,Math.floor(buf.byteLength/4)));
-    const posLen=i32[0],normLen=i32[1],idxLen=i32[2];
+    const posLen=new Int32Array(buf,0,1)[0],normLen=new Int32Array(buf,4,1)[0],idxLen=new Int32Array(buf,8,1)[0];
     const flag=new Uint8Array(buf,12,1)[0];
-    const expectedOld13=13+posLen*4+normLen*4+idxLen*(flag?4:2);
-    const expectedOld16=16+posLen*4+normLen*4+idxLen*(flag?4:2);
-    let HEADER,colorLen=0;
-    if(buf.byteLength===expectedOld13){HEADER=13;}
-    else if(buf.byteLength===expectedOld16){HEADER=16;}
-    else{HEADER=20;colorLen=i32[3]||0;}
+    const expectedOld=13+posLen*4+normLen*4+idxLen*(flag?4:2);
+    const HEADER=(buf.byteLength===expectedOld)?13:16;
     let offset=HEADER;
     const posData=new Float32Array(buf.slice(offset,offset+posLen*4));offset+=posLen*4;
     let normData=null;
     if(normLen>0){normData=new Float32Array(buf.slice(offset,offset+normLen*4));offset+=normLen*4;}
     let idxData=null;
-    if(idxLen>0){const bytes=idxLen*(flag?4:2);idxData=flag?new Uint32Array(buf.slice(offset,offset+bytes)):new Uint16Array(buf.slice(offset,offset+bytes));offset+=bytes;}
-    let colorData=null;
-    if(colorLen>0){colorData=new Float32Array(buf.slice(offset,offset+colorLen*4));}
+    if(idxLen>0){const bytes=idxLen*(flag?4:2);idxData=flag?new Uint32Array(buf.slice(offset,offset+bytes)):new Uint16Array(buf.slice(offset,offset+bytes));}
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(posData,3));
     if(normData)geo.setAttribute('normal',new THREE.Float32BufferAttribute(normData,3));
     if(idxData)geo.setIndex(new THREE.BufferAttribute(idxData,1));
-    if(colorData){geo.setAttribute('color',new THREE.Float32BufferAttribute(colorData,3));geo.userData.hasVertexColors=true;}
     return geo;
 }
 async function saveModelToIDB(model) {
     try {
         const geoBuffers=model.originalGeometries.filter(g=>g&&g.attributes&&g.attributes.position).map(g=>geometryToArrayBuffer(g));
-        const originalMeshColors=model.originalMeshColors||[];
-        await idbPut({name:model.name,color:model.color,unit:model.unit||'m',geoBuffers,originalMeshColors});
+        await idbPut({name:model.name,color:model.color,unit:model.unit||'m',geoBuffers});
     }catch(e){console.warn('saveModelToIDB error:',e);}
 }
 async function saveSession() {
@@ -2153,7 +2041,7 @@ async function saveSession() {
             baseModelId,
             ruler:rulerState.finished?{points:rulerState.points.map(p=>({x:p.x,y:p.y,z:p.z})),modelUnit:rulerState.modelUnit,displayText:document.getElementById('rulerOverlay').textContent}:null,
             models:models.map(m=>({
-                name:m.name,date:m.date,unit:m.unit||'m',color:m.color,visible:m.visible,useOriginalColor:m.useOriginalColor||false,
+                name:m.name,date:m.date,unit:m.unit||'m',color:m.color,visible:m.visible,
                 position:{x:m.group.position.x,y:m.group.position.y,z:m.group.position.z},
                 rotation:{x:m.group.rotation.x,y:m.group.rotation.y,z:m.group.rotation.z},
                 scale:{x:m.group.scale.x,y:m.group.scale.y,z:m.group.scale.z}
@@ -2190,11 +2078,8 @@ async function restoreFullSession() {
             try {
                 const mainGroup=new THREE.Group();
                 const color=meta.color||MODEL_COLORS[models.length%MODEL_COLORS.length].hex;
-                const savedMeshColors=idbRec.originalMeshColors||[];
-                idbRec.geoBuffers.forEach((buf,i)=>{
+                idbRec.geoBuffers.forEach(buf=>{
                     const geometry=arrayBufferToGeometry(buf);
-                    const hasVtx=!!geometry.userData.hasVertexColors;
-                    const savedMC=savedMeshColors[i]||null;
                     const material=new THREE.MeshStandardMaterial({color,transparent:true,opacity:0.85,side:THREE.DoubleSide,flatShading:false});
                     mainGroup.add(new THREE.Mesh(geometry,material));
                 });
@@ -2204,26 +2089,7 @@ async function restoreFullSession() {
                 mainGroup.scale.set(meta.scale.x,meta.scale.y,meta.scale.z);
                 mainGroup.visible=meta.visible;
                 scene.add(mainGroup);
-                // Rebuild originalMeshColors from IDB (has vertex type) + geometry userData
-                const originalMeshColors=mainGroup.children.map((mesh,i)=>{
-                    const saved=savedMeshColors[i]||null;
-                    if(saved&&saved.type==='vertex')return {type:'vertex'};
-                    if(saved&&saved.type==='material')return {type:'material',color:saved.color};
-                    if(mesh.geometry&&mesh.geometry.userData.hasVertexColors)return {type:'vertex'};
-                    return null;
-                });
-                const hasOriginalColor=originalMeshColors.some(mc=>mc!==null);
-                const restoredModel={id:modelCounter++,name:meta.name,date:meta.date,group:mainGroup,meshes:mainGroup.children,visible:meta.visible,originalGeometries:mainGroup.children.map(m=>m.geometry.clone()),color,unit:meta.unit||'m',useOriginalColor:meta.useOriginalColor||false,hasOriginalColor,originalMeshColors};
-                // If was in original color mode, re-apply it
-                if(restoredModel.useOriginalColor&&hasOriginalColor){
-                    restoredModel.meshes.forEach((mesh,i)=>{
-                        if(!mesh.material)return;
-                        const orig=originalMeshColors[i];
-                        if(orig&&orig.type==='vertex'){mesh.material.vertexColors=true;mesh.material.color.set(0xffffff);mesh.material.needsUpdate=true;}
-                        else if(orig&&orig.type==='material'){mesh.material.color.set(orig.color);mesh.material.needsUpdate=true;}
-                    });
-                }
-                models.push(restoredModel);
+                models.push({id:modelCounter++,name:meta.name,date:meta.date,group:mainGroup,meshes:mainGroup.children,visible:meta.visible,originalGeometries:mainGroup.children.map(m=>m.geometry.clone()),color,unit:meta.unit||'m'});
             }catch(e){console.warn('restore model error:',meta.name,e);}
         }
         loadingMsg.classList.add('hidden');
