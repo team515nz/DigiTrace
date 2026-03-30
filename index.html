@@ -501,6 +501,13 @@ function setupMouseControls() {
                 if (intersects.length > 0) {
                     selectAlignmentPoint(e.clientX, e.clientY);
                 } else {
+                    // no intersection
+                }
+            }
+        }
+    });
+}
+</script>
 
     <script type="text/markdown" id="readmeTemplate"></script>
 
@@ -515,6 +522,6 @@ function setupMouseControls() {
     <script src="storage.js"></script>
     <script src="ui.js"></script>
     <script src="translations.js"></script>
-    <script src="i18n.js"></script>
+    <script src="i18n.js"></script>    
 </body>
 </html>
