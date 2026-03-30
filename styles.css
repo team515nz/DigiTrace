@@ -1517,16 +1517,6 @@ body.rtl .lang-switcher {
     to   { opacity: 1; top: 10px; }
 }
 
-.manual-slider-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75em;
-    color: rgba(255,255,255,0.5);
-    margin-bottom: 5px;
-}
-.manual-slider-row input[type="range"] { flex: 1; }
-
 .align-separator {
     height: 1px;
     background: rgba(255,255,255,0.07);

@@ -417,10 +417,8 @@ function hideAlignBanner() { document.getElementById('alignIsolationBanner').cla
 function setAlignMode(mode) {
     alignState.mode = mode;
     document.getElementById('tabPoints').classList.toggle('active', mode === 'points');
-    document.getElementById('tabManual').classList.toggle('active', mode === 'manual');
     if (alignState.phase === 'base') {
         document.getElementById('subpanelPoints').classList.toggle('active', mode === 'points');
-        document.getElementById('subpanelManualBase').classList.toggle('active', mode === 'manual');
     }
     if (mode === 'points') {
         document.getElementById('canvas-container').classList.add('align-mode');
@@ -443,8 +441,6 @@ function alignGoToStep3() {
             ? `לחץ על "${m2?m2.name:'מטרה'}" לסימון ${alignState.points1.length} נקודות`
             : `הזז את "${m2?m2.name:'מטרה'}" למיקום הרצוי`;
     document.getElementById('subpanelPointsTarget').classList.toggle('active', alignState.mode === 'points');
-    document.getElementById('subpanelManualTransform').classList.toggle('active', alignState.mode === 'manual');
-    if (alignState.mode === 'manual') { initManualTransform(); document.getElementById('canvas-container').classList.remove('align-mode'); }
     if (m1) m1.group.visible = false;
     if (m2) m2.group.visible = true;
     document.getElementById('requiredPointsLabel').textContent = alignState.points1.length;
@@ -560,51 +556,6 @@ function removeMarkersForModel(modelId) {
     }
 }
 
-function initManualTransform() {
-    const model = models.find(m => m.id === alignState.model2);
-    if (!model) return;
-    alignState.manualBasePos = model.group.position.clone();
-    alignState.manualBaseRot = model.group.rotation.clone();
-    alignState.manualBaseScale = model.group.scale.clone();
-    ['tx','ty','tz'].forEach(id => { document.getElementById(id+'Slider').value=0; document.getElementById(id+'Val').value='0.00'; });
-    ['rx','ry','rz'].forEach(id => { document.getElementById(id+'Slider').value=0; document.getElementById(id+'Val').value='0'; });
-}
-
-function applyManualTransform() {
-    const model = models.find(m => m.id === alignState.model2);
-    if (!model || !alignState.manualBasePos) return;
-    const tx=parseFloat(document.getElementById('txSlider').value)||0;
-    const ty=parseFloat(document.getElementById('tySlider').value)||0;
-    const tz=parseFloat(document.getElementById('tzSlider').value)||0;
-    const rx=parseFloat(document.getElementById('rxSlider').value)||0;
-    const ry=parseFloat(document.getElementById('rySlider').value)||0;
-    const rz=parseFloat(document.getElementById('rzSlider').value)||0;
-    document.getElementById('txVal').value=tx.toFixed(2); document.getElementById('tyVal').value=ty.toFixed(2); document.getElementById('tzVal').value=tz.toFixed(2);
-    document.getElementById('rxVal').value=rx.toFixed(0); document.getElementById('ryVal').value=ry.toFixed(0); document.getElementById('rzVal').value=rz.toFixed(0);
-    model.group.position.set(alignState.manualBasePos.x+tx, alignState.manualBasePos.y+ty, alignState.manualBasePos.z+tz);
-    model.group.rotation.set(alignState.manualBaseRot.x+rx*Math.PI/180, alignState.manualBaseRot.y+ry*Math.PI/180, alignState.manualBaseRot.z+rz*Math.PI/180);
-    calculateGlobalBoundingBox();
-}
-
-function syncSliderFromInput(axis) {
-    const val = parseFloat(document.getElementById(axis+'Val').value)||0;
-    document.getElementById(axis+'Slider').value = val;
-    applyManualTransform();
-}
-
-function resetManualTransform() {
-    const model = models.find(m => m.id === alignState.model2);
-    if (!model || !alignState.manualBasePos) return;
-    model.group.position.copy(alignState.manualBasePos);
-    model.group.rotation.copy(alignState.manualBaseRot);
-    model.group.scale.copy(alignState.manualBaseScale);
-    ['tx','ty','tz'].forEach(id => { document.getElementById(id+'Slider').value=0; document.getElementById(id+'Val').value='0.00'; });
-    ['rx','ry','rz'].forEach(id => { document.getElementById(id+'Slider').value=0; document.getElementById(id+'Val').value='0'; });
-    calculateGlobalBoundingBox();
-}
-
-function confirmManualAlignment() { alignFinish(`מודל הוזזה ידנית הושלמה ✓`); }
-
 function executeAlignment() {
     const numPoints = Math.min(alignState.points1.length, alignState.points2.length);
     if (numPoints < alignState.minPoints) { showToast('יש לסמן לפחות ' + alignState.minPoints + ' נקודות', 'error'); return; }
@@ -659,19 +610,13 @@ function cleanupAlignState() {
         if (m && m.visible) m.group.visible = true;
     });
     restoreTint(); restoreIsolation();
-    alignState = { active:false, mode:'points', phase:'base', model1:null, model2:null, selectingModel:null, points1:[], points2:[], markers:[], minPoints:3, manualBasePos:null, manualBaseRot:null, manualBaseScale:null, hiddenModels:[] };
+    alignState = { active:false, mode:'points', phase:'base', model1:null, model2:null, selectingModel:null, points1:[], points2:[], markers:[], minPoints:3, hiddenModels:[] };
     document.getElementById('canvas-container').classList.remove('align-mode', 'move-mode');
     hideAlignBanner(); updateModelList();
     if (typeof sidebarController !== 'undefined') sidebarController.openTab('models');
 }
 
 function cancelAlignment() {
-    const model = alignState.model2 !== null ? models.find(m => m.id === alignState.model2) : null;
-    if (model && alignState.manualBasePos) {
-        model.group.position.copy(alignState.manualBasePos);
-        model.group.rotation.copy(alignState.manualBaseRot);
-        model.group.scale.copy(alignState.manualBaseScale);
-    }
     cleanupAlignState();
 }
 

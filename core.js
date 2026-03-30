@@ -26,9 +26,6 @@ let alignState = {
     points2: [],
     markers: [],
     minPoints: 3,
-    manualBasePos: null,
-    manualBaseRot: null,
-    manualBaseScale: null,
     hiddenModels: []
 };
 
@@ -40,20 +37,20 @@ let rulerState = { active: false, finished: false, points: [], markers: [], line
 
 let pendingFiles = [], pendingColors = [];
 
-// ─── Constants ──────────────────────────────────────────────────────────── 
+// ─── Constants ────────────────────────────────────────────────────────────
 const MODEL_COLORS = [
-    { hex: 0xFF6B6B, css: '#FF6B6B', name: 'אדום' },
-    { hex: 0x4ECDC4, css: '#4ECDC4', name: 'טורקיז' },
-    { hex: 0x45B7D1, css: '#45B7D1', name: 'כחול' },
-    { hex: 0xFFA07A, css: '#FFA07A', name: 'כתום' },
-    { hex: 0x98D8C8, css: '#98D8C8', name: 'ירוק' },
-    { hex: 0xF7DC6F, css: '#F7DC6F', name: 'צהוב' },
-    { hex: 0xBB8FCE, css: '#BB8FCE', name: 'סגול' },
-    { hex: 0xF0B27A, css: '#F0B27A', name: 'אפרסק' },
-    { hex: 0x82E0AA, css: '#82E0AA', name: 'ירוק בהיר' },
-    { hex: 0x85C1E9, css: '#85C1E9', name: 'תכלת' },
-    { hex: 0xF1948A, css: '#F1948A', name: 'ורוד' },
-    { hex: 0xF9E79F, css: '#F9E79F', name: 'שמנת' },
+    { hex: 0xFF6B6B, css: '#FF6B6B', nameKey: 'colorRed' },
+    { hex: 0x4ECDC4, css: '#4ECDC4', nameKey: 'colorTurquoise' },
+    { hex: 0x45B7D1, css: '#45B7D1', nameKey: 'colorBlue' },
+    { hex: 0xFFA07A, css: '#FFA07A', nameKey: 'colorOrange' },
+    { hex: 0x98D8C8, css: '#98D8C8', nameKey: 'colorGreen' },
+    { hex: 0xF7DC6F, css: '#F7DC6F', nameKey: 'colorYellow' },
+    { hex: 0xBB8FCE, css: '#BB8FCE', nameKey: 'colorPurple' },
+    { hex: 0xF0B27A, css: '#F0B27A', nameKey: 'colorPeach' },
+    { hex: 0x82E0AA, css: '#82E0AA', nameKey: 'colorLightGreen' },
+    { hex: 0x85C1E9, css: '#85C1E9', nameKey: 'colorAzure' },
+    { hex: 0xF1948A, css: '#F1948A', nameKey: 'colorPink' },
+    { hex: 0xF9E79F, css: '#F9E79F', nameKey: 'colorCream' },
 ];
 
 const UNIT_TO_METERS = { mm: 0.001, cm: 0.01, m: 1, inch: 0.0254, ft: 0.3048 };
@@ -69,8 +66,8 @@ function setTextCensored(el, text) { if (el) el.textContent = censor(text); }
 
 function getColorInfo(hexNum) {
     const found = MODEL_COLORS.find(c => c.hex === hexNum);
-    if (found) return { name: found.name, hex: found.css };
-    return { name: 'מותאם', hex: '#' + ('000000' + hexNum.toString(16)).slice(-6) };
+    if (found) return { name: window.t(found.nameKey), hex: found.css };
+    return { name: window.t('colorCustom'), hex: '#' + ('000000' + hexNum.toString(16)).slice(-6) };
 }
 
 // ─── Scene Setup ────────────────────────────────────────────────────────── 

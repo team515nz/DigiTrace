@@ -19,10 +19,10 @@ function loadOBJFile(file) {
                 if (geometry && geometry.attributes.position.count > 0) {
                     geometry.userData = { isAligned };
                     resolve([geometry]);
-                } else reject(new Error('הקובץ ריק או לא תקין'));
-            } catch (err) { reject(new Error('שגיאה בניתוח הקובץ: ' + err.message)); }
+                } else reject(new Error(window.t('fileEmptyOrInvalid')));
+            } catch (err) { reject(new Error(window.t('fileParseError') + ': ' + err.message)); }
         };
-        reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+        reader.onerror = () => reject(new Error(window.t('fileReadError')));
         reader.readAsText(file);
     });
 }
@@ -60,7 +60,7 @@ function parseOBJ(text) {
             }
         }
     }
-    if (vertices.length === 0) throw new Error('לא נמצאו vertices בקובץ');
+    if (vertices.length === 0) throw new Error(window.t('noVerticesFound'));
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     if (faces.length > 0) geometry.setIndex(faces);
@@ -80,7 +80,7 @@ function loadSTLFile(file) {
                 const geometry = parseSTL(e.target.result);
                 if (geometry) { geometry.userData = { isAligned }; resolve([geometry]); }
                 else reject(new Error('Failed to parse STL'));
-            } catch (err) { reject(new Error('שגיאה בניתוח STL: ' + err.message)); }
+            } catch (err) { reject(new Error(window.t('stlParseError') + ': ' + err.message)); }
         };
         reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
         reader.readAsArrayBuffer(file);
@@ -96,9 +96,9 @@ function parseSTL(buffer) {
 }
 
 function parseSTLBinary(view) {
-    if (view.byteLength < 84) throw new Error('קובץ STL קצר מדי');
+    if (view.byteLength < 84) throw new Error(window.t('stlFileTooShort'));
     const triangles = view.getUint32(80, true);
-    if (view.byteLength < 84 + triangles * 50) throw new Error('גודל קובץ STL לא תואם');
+    if (view.byteLength < 84 + triangles * 50) throw new Error(window.t('stlFileSizeMismatch'));
     const vertices = [];
     for (let i = 0; i < triangles; i++) {
         const offset = 84 + i * 50;
@@ -109,7 +109,7 @@ function parseSTLBinary(view) {
             if (!isNaN(x) && !isNaN(y) && !isNaN(z)) vertices.push(x, y, z);
         }
     }
-    if (vertices.length === 0) throw new Error('לא נמצאו vertices תקינים');
+    if (vertices.length === 0) throw new Error(window.t('noValidVerticesFound'));
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.computeVertexNormals();
@@ -641,78 +641,6 @@ window.addEventListener('load', () => {
 // ─── INTERNATIONALIZATION & TRANSLATIONS ─────────────────────────────────
 // ────────────────────────────────────────────────────────────────────────── 
 
-// ─── Translation Dictionary ────────────────────────────────────────────────
-window.TRANSLATIONS = {
-  "en": {
-    "nativeName": "English",
-    "siteTitle": "DigiTrace - 🏺 3D Archaeological Excavation Analysis",
-    "siteSubtitle": "Upload 3D models and analyze excavation layers • Flexible alignment with multiple points",
-    "uploadTitle": "📁 Upload Models",
-    "uploadHint": "Click to upload a 3D file",
-    "fileFormats": "OBJ, STL, GLB, GLTF",
-    "uploadedModels": "📋 Uploaded Models",
-    "downloadModel": "📥 Download Combined Model",
-    "exportFormat": "Export Format",
-    "alignTitle": "🎯 Flexible Model Alignment",
-    "alignInfo": "Click the 📍 next to a model and choose points on it",
-    "pointCounter": "Model 1: 0 points | Model 2: 0 points",
-    "finishModelBtn": "Finish Current Model →",
-    "undoPointBtn": "↶ Undo Last Point",
-    "executeAlignBtn": "Align Models",
-    "cancelBtn": "Cancel",
-    "fullscreenBtn": "🖵 Fullscreen",
-    "rulerBtn": "📏 Ruler",
-    "helpBtn": "❓ Help",
-    "cutYValue": "Vertical cut: 0%",
-    "cutXValue": "Horizontal cut: 0%",
-    "cutZValue": "Depth cut: 0%",
-    "cutYLabel": "Vertical cut (top → bottom)",
-    "cutXLabel": "Horizontal cut (left → right)",
-    "cutZLabel": "Depth cut (back → front)",
-    "closeFullscreen": "✕ Close Fullscreen",
-    "colorLabel": "Color",
-    "rulerPoint1": "📏 Click first point on model",
-    "rulerPoint2": "📏 Click second point",
-    "rulerDistanceSuffix": "(click 📏 to close)",
-    "rulerDistance": "📏 Distance",
-    "uploadFirst": "Upload a model first"
-  },
-  "he": {
-    "nativeName": "עברית",
-    "siteTitle": "DigiTrace - 🏺 מערכת ניתוח חפירות ארכיאולוגיות 3D",
-    "siteSubtitle": "העלאת מודלים תלת-ממדיים וניתוח שכבות חפירה • יישור גמיש עם מספר נקודות",
-    "uploadTitle": "📁 העלאת מודלים",
-    "uploadHint": "לחץ להעלאת קובץ 3D",
-    "fileFormats": "OBJ, STL, GLB, GLTF",
-    "uploadedModels": "📋 מודלים שהועלו",
-    "downloadModel": "📥 הורדת מודל משולב",
-    "exportFormat": "פורמט יצוא",
-    "alignTitle": "🎯 יישור מודלים גמיש",
-    "alignInfo": "לחץ על 📍 ליד מודל ובחר נקודות עליו",
-    "pointCounter": "מודל 1: 0 נקודות | מודל 2: 0 נקודות",
-    "finishModelBtn": "סיים מודל נוכחי →",
-    "undoPointBtn": "↶ מחק נקודה אחרונה",
-    "executeAlignBtn": "יישר מודלים",
-    "cancelBtn": "ביטול",
-    "fullscreenBtn": "🖵 מסך מלא",
-    "rulerBtn": "📏 סרגל",
-    "helpBtn": "❓ עזרה",
-    "cutYValue": "חיתוך אנכי: 0%",
-    "cutXValue": "חיתוך רוחב: 0%",
-    "cutZValue": "חיתוך עומק: 0%",
-    "cutYLabel": "חיתוך מלמעלה למטה",
-    "cutXLabel": "חיתוך משמאל לימין",
-    "cutZLabel": "חיתוך מאחורה לקדימה",
-    "closeFullscreen": "✕ סגור מסך מלא",
-    "colorLabel": "צבע",
-    "rulerPoint1": "📏 לחץ על נקודה ראשונה במודל",
-    "rulerPoint2": "📏 לחץ על נקודה שנייה",
-    "rulerDistanceSuffix": "(לחץ 📏 לסגירה)",
-    "rulerDistance": "📏 מרחק",
-    "uploadFirst": "העלה מודל תחילה"
-  }
-};
-
 // ─── Translation helper ────────────────────────────────────────────────────
 window.t = function(key) {
     const lang = document.documentElement.lang || 'en';
@@ -722,6 +650,20 @@ window.t = function(key) {
 
 // ─── i18n Initialization ───────────────────────────────────────────────────
 (function () {
+    async function loadTranslations() {
+        try {
+            const response = await fetch('translate.json');
+            if (!response.ok) {
+                throw new Error('Failed to load translations');
+            }
+            window.TRANSLATIONS = await response.json();
+        } catch (error) {
+            console.error('Error loading translations:', error);
+            // Fallback to empty translations
+            window.TRANSLATIONS = { en: {}, he: {} };
+        }
+    }
+
     function initI18n() {
         const langSelect = document.getElementById('langSelect');
         const translations = window.TRANSLATIONS || {};
@@ -776,9 +718,14 @@ window.t = function(key) {
         applyTranslations(langSelect.value);
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initI18n);
-    } else {
+    async function initializeI18n() {
+        await loadTranslations();
         initI18n();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeI18n);
+    } else {
+        initializeI18n();
     }
 })();

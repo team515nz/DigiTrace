@@ -56,8 +56,8 @@
                         <div id="sidebarContentModels" class="sidebar-content active">
                             <div id="sidebarUploadZone" class="sidebar-upload-zone">
                                 <span class="sidebar-upload-icon">📤</span>
-                                <div class="sidebar-upload-text">Drop model here</div>
-                                <div class="sidebar-upload-hint">or click to browse</div>
+                                <div class="sidebar-upload-text" data-i18n="dropModelHere">Drop model here</div>
+                                <div class="sidebar-upload-hint" data-i18n="orClickToBrowse">or click to browse</div>
                             </div>
                             <input type="file" id="sidebarFileInput" accept=".obj,.stl,.glb,.gltf" multiple>
                             <div id="sidebarModelList"></div>
@@ -69,43 +69,42 @@
                                 <div class="align-panel-header">
                                     <div class="align-panel-title">
                                         <span class="title-icon">🎯</span>
-                                        Model Alignment
+                                        <span data-i18n="modelAlignment">Model Alignment</span>
                                     </div>
                                 </div>
                                 <div class="align-steps-track">
                                     <div class="align-step-dot active" id="stepDot1">
                                         <div class="step-circle">1</div>
-                                        <div class="step-label">Pick Models</div>
+                                        <div class="step-label" data-i18n="pickModels">Pick Models</div>
                                     </div>
                                     <div class="align-step-dot" id="stepDot2">
                                         <div class="step-circle">2</div>
-                                        <div class="step-label">Base Points</div>
+                                        <div class="step-label" data-i18n="basePoints">Base Points</div>
                                     </div>
                                     <div class="align-step-dot" id="stepDot3">
                                         <div class="step-circle">3</div>
-                                        <div class="step-label">Target Points</div>
+                                        <div class="step-label" data-i18n="targetPoints">Target Points</div>
                                     </div>
                                 </div>
                                 <div class="align-panel-body">
                                     <!-- Step 1: Pick models -->
                                     <div id="alignPage1" class="align-step-page active">
                                         <div class="align-model-selector">
-                                            <div class="align-model-selector-label label-base">🔒 Base Model</div>
+                                            <div class="align-model-selector-label label-base" data-i18n="baseModel">🔒 Base Model</div>
                                             <select id="alignModel1Select" class="align-model-select"></select>
                                         </div>
                                         <div class="align-model-selector">
-                                            <div class="align-model-selector-label label-target">🎯 Target Model</div>
+                                            <div class="align-model-selector-label label-target" data-i18n="targetModel">🎯 Target Model</div>
                                             <select id="alignModel2Select" class="align-model-select"></select>
                                         </div>
                                         <label style="display:flex;align-items:center;gap:6px;font-size:0.78em;color:rgba(255,255,255,0.5);margin-bottom:12px;">
-                                            <input type="checkbox" id="alignIsolationToggle" checked> Hide other models
+                                            <input type="checkbox" id="alignIsolationToggle" checked> <span data-i18n="hideOtherModels">Hide other models</span>
                                         </label>
                                         <div class="align-mode-tabs">
-                                            <button id="tabPoints" class="align-mode-tab active" onclick="setAlignMode('points')">📍 Points</button>
-                                            <button id="tabManual" class="align-mode-tab" onclick="setAlignMode('manual')">✋ Manual</button>
+                                            <button id="tabPoints" class="align-mode-tab active" onclick="setAlignMode('points')" data-i18n="points">📍 Points</button>
                                         </div>
                                         <div class="align-actions-row">
-                                            <button class="align-btn-primary" onclick="alignStartStep2()">Next →</button>
+                                            <button class="align-btn-primary" onclick="alignStartStep2()" data-i18n="next">Next →</button>
                                         </div>
                                     </div>
 
@@ -114,70 +113,45 @@
                                         <div id="subpanelPoints" class="align-subpanel active">
                                             <div class="align-phase-badge phase-badge-base">
                                                 <div class="phase-badge-dot"></div>
-                                                <span id="alignPhaseLabelBase">Click on base model</span>
+                                                <span id="alignPhaseLabelBase" data-i18n="clickOnBaseModel">Click on base model</span>
                                             </div>
-                                            <div class="align-hint">Click points on the base model (🟠). Need at least 3 points.</div>
+                                            <div class="align-hint" data-i18n="clickPointsOnBaseModel">Click points on the base model (🟠). Need at least 3 points.</div>
                                             <div class="align-counter-row">
-                                                <span class="align-counter-label">Points marked</span>
+                                                <span class="align-counter-label" data-i18n="pointsMarked">Points marked</span>
                                                 <span class="align-counter-value" id="base1Counter">0</span>
                                             </div>
                                             <div class="align-actions-row">
-                                                <button class="align-btn-undo" onclick="undoLastPoint()">↩</button>
-                                                <button id="btnToStep3" class="align-btn-primary" disabled onclick="alignGoToStep3()">Next →</button>
+                                                <button class="align-btn-undo" onclick="undoLastPoint()" data-i18n="undo">↩</button>
+                                                <button id="btnToStep3" class="align-btn-primary" disabled onclick="alignGoToStep3()" data-i18n="next">Next →</button>
                                             </div>
                                         </div>
-                                        <div id="subpanelManualBase" class="align-subpanel">
-                                            <div class="align-phase-badge phase-badge-base">
-                                                <div class="phase-badge-dot"></div>
-                                                <span>Ready — proceed to target</span>
-                                            </div>
-                                            <div class="align-actions-row">
-                                                <button class="align-btn-primary" onclick="alignGoToStep3()">Next →</button>
-                                            </div>
-                                        </div>
+
                                     </div>
 
-                                    <!-- Step 3: Mark target points / manual transform -->
+                                    <!-- Step 3: Mark target points -->
                                     <div id="alignPage3" class="align-step-page">
                                         <div id="subpanelPointsTarget" class="align-subpanel active">
                                             <div class="align-phase-badge phase-badge-target">
                                                 <div class="phase-badge-dot"></div>
-                                                <span id="alignPhaseLabelTarget">Click on target model</span>
+                                                <span id="alignPhaseLabelTarget" data-i18n="clickOnTargetModel">Click on target model</span>
                                             </div>
-                                            <div class="align-hint">Mark <span id="requiredPointsLabel">3</span> matching points on the target (🔵).</div>
+                                            <div class="align-hint" data-i18n="markMatchingPoints">Mark <span id="requiredPointsLabel">3</span> matching points on the target (🔵).</div>
                                             <div class="align-counter-row">
-                                                <span class="align-counter-label">Points marked</span>
+                                                <span class="align-counter-label" data-i18n="pointsMarked">Points marked</span>
                                                 <span class="align-counter-value" id="targetCounter">0</span>
                                             </div>
                                             <div class="align-actions-row">
-                                                <button class="align-btn-undo" onclick="undoLastPoint()">↩</button>
-                                                <button id="btnExecuteAlign" class="align-btn-primary" disabled onclick="executeAlignment()">✓ Align</button>
+                                                <button class="align-btn-undo" onclick="undoLastPoint()" data-i18n="undo">↩</button>
+                                                <button id="btnExecuteAlign" class="align-btn-primary" disabled onclick="executeAlignment()" data-i18n="align">✓ Align</button>
                                             </div>
                                             <div class="align-actions-row">
-                                                <button class="align-btn-secondary" onclick="alignBackToStep2()">← Back</button>
+                                                <button class="align-btn-secondary" onclick="alignBackToStep2()" data-i18n="back">← Back</button>
                                             </div>
                                         </div>
-                                        <div id="subpanelManualTransform" class="align-subpanel">
-                                            <div class="align-phase-badge phase-badge-target">
-                                                <div class="phase-badge-dot"></div>
-                                                <span>Manual Transform</span>
-                                            </div>
-                                            <div style="font-size:0.75em;color:rgba(255,255,255,0.5);margin-bottom:4px;">Translation</div>
-                                            <div class="manual-slider-row">X <input type="range" id="txSlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()"> <input type="number" id="txVal" value="0.00" step="0.01" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('tx')"></div>
-                                            <div class="manual-slider-row">Y <input type="range" id="tySlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()"> <input type="number" id="tyVal" value="0.00" step="0.01" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('ty')"></div>
-                                            <div class="manual-slider-row">Z <input type="range" id="tzSlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()"> <input type="number" id="tzVal" value="0.00" step="0.01" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('tz')"></div>
-                                            <div style="font-size:0.75em;color:rgba(255,255,255,0.5);margin:8px 0 4px;">Rotation (°)</div>
-                                            <div class="manual-slider-row">X <input type="range" id="rxSlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()"> <input type="number" id="rxVal" value="0" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('rx')"></div>
-                                            <div class="manual-slider-row">Y <input type="range" id="rySlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()"> <input type="number" id="ryVal" value="0" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('ry')"></div>
-                                            <div class="manual-slider-row">Z <input type="range" id="rzSlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()"> <input type="number" id="rzVal" value="0" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('rz')"></div>
-                                            <div class="align-actions-row">
-                                                <button class="align-btn-secondary" onclick="resetManualTransform()">Reset</button>
-                                                <button class="align-btn-primary" onclick="confirmManualAlignment()">✓ Confirm</button>
-                                            </div>
-                                        </div>
+
                                     </div>
 
-                                    <button class="align-btn-cancel" id="sidebarBtnCancelAlign" onclick="cancelAlignment()">✕ Cancel Alignment</button>
+                                    <button class="align-btn-cancel" id="sidebarBtnCancelAlign" onclick="cancelAlignment()" data-i18n="cancelAlignment">✕ Cancel Alignment</button>
                                 </div>
                             </div>
                         </div>
@@ -199,14 +173,14 @@
                             </select>
                             <div class="sidebar-export-options">
                                 <div class="sidebar-export-option">
-                                    <div class="sidebar-export-option-title">📦 Merged Model</div>
+                                    <div class="sidebar-export-option-title" data-i18n="mergedModel">📦 Merged Model</div>
                                     <div class="sidebar-export-option-size" id="exportSizeMerged">~ 2.5 MB</div>
-                                    <button class="sidebar-btn-download" id="sidebarBtnDownloadMerged">Download</button>
+                                    <button class="sidebar-btn-download" id="sidebarBtnDownloadMerged" data-i18n="download">Download</button>
                                 </div>
                                 <div class="sidebar-export-option">
-                                    <div class="sidebar-export-option-title">📁 Each Separately</div>
+                                    <div class="sidebar-export-option-title" data-i18n="eachSeparately">📁 Each Separately</div>
                                     <div class="sidebar-export-option-size" id="exportSizeSeparate">~ 4.2 MB</div>
-                                    <button class="sidebar-btn-download" id="sidebarBtnDownloadSeparate">Download</button>
+                                    <button class="sidebar-btn-download" id="sidebarBtnDownloadSeparate" data-i18n="download">Download</button>
                                 </div>
                             </div>
                         </div>
