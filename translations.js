@@ -1,4 +1,4 @@
-{
+window.TRANSLATIONS = {
   "en": {
     "nativeName": "English",
     "siteTitle": "DigiTrace - 🏺 3D Archaeological Excavation Analysis",
@@ -55,4 +55,4 @@
     "closeFullscreen": "✕ סגור מסך מלא",
     "colorLabel": "צבע"
   }
-}
+};

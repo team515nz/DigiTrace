@@ -1,0 +1,115 @@
+/* ─── Canvas & Viewer ───────────────────────────────────────────── */
+#canvas-container {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, #87CEEB 0%, #E0E0E0 100%);
+    border-radius: 15px;
+    box-shadow: inset 0 4px 20px rgba(0,0,0,0.2);
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+}
+
+#canvas-container.align-mode,
+#canvas-container.align-mode:hover {
+    cursor: crosshair;
+}
+
+#canvas-container.move-mode {
+    cursor: grab;
+}
+
+#canvas-container.move-mode:active {
+    cursor: grabbing;
+}
+
+.instruction {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #666;
+    font-size: 1.1em;
+}
+
+.instruction-icon {
+    font-size: 3.5em;
+    margin-bottom: 15px;
+}
+
+.instruction-hint {
+    font-size: 0.75em;
+    margin-top: 8px;
+    color: #999;
+}
+
+/* ─── Fullscreen Mode ───────────────────────────────────────────── */
+.fullscreen-controls {
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 248, 240, 0.95);
+    padding: 12px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 1000;
+    width: 220px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    backdrop-filter: blur(10px);
+}
+
+.fullscreen-controls.active {
+    display: block;
+}
+
+.close-fullscreen {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    transition: all 0.3s;
+    z-index: 1001;
+    display: none;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+
+.close-fullscreen.active {
+    display: block;
+}
+
+.close-fullscreen:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(244, 67, 54, 0.4);
+}
+
+.fullscreen-mode #canvas-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    z-index: 999;
+}
+
+/* Fullscreen compact controls */
+.fullscreen-mode .fullscreen-controls { max-width: 220px; padding: 12px; }
+.fullscreen-mode .control-group { margin-bottom: 8px; }
+.fullscreen-mode .control-group label { font-size: 0.75em; margin-bottom: 3px; }
+.fullscreen-mode .slider { height: 4px; }
+.fullscreen-mode .slider::-webkit-slider-thumb { width: 14px; height: 14px; }
+.fullscreen-mode .value-display { font-size: 0.7em; padding: 2px 6px; margin-right: 5px; }
+
+@media (max-width: 1200px) {
+    .fullscreen-mode .fullscreen-controls { max-width: 250px; padding: 15px; }
+}
