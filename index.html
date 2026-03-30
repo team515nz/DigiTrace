@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DigiTrace - 🏺 3D Archaeological Excavation Analysis</title>
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="layout.css">
+    <link rel="stylesheet" href="header.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="tabbed-sidebar.css">
+    <link rel="stylesheet" href="controls.css">
+    <link rel="stylesheet" href="canvas.css">
+    <link rel="stylesheet" href="alignment.css">
+    <link rel="stylesheet" href="modal.css">
+    <link rel="icon" href="icon.png" type="image/png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Firebase + Google Analytics -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyBSrqxNJkKVbBpcMrvR4hMCVbazuLVv6go",
+            authDomain: "digitrace515.firebaseapp.com",
+            projectId: "digitrace515",
+            storageBucket: "digitrace515.firebasestorage.app",
+            messagingSenderId: "461065893877",
+            appId: "1:461065893877:web:40d7c05821b5ba8bbf12bc",
+            measurementId: "G-JBHJR5DPJ1"
+        };
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 15px;">
+                <img src="icon.png" alt="DigiTrace Logo" style="height: 60px; object-fit: contain;">
+                <span style="font-size: 1.8em; letter-spacing: 2px; color: #fff;"><span style="font-weight: 400;">Digi</span><span style="font-weight: 800;">Trace</span></span>
+            </div>
+            <p data-i18n="siteSubtitle">העלאת מודלים תלת-ממדיים וניתוח שכבות חפירה • יישור גמיש עם מספר נקודות</p>
+            <div class="lang-switcher">
+                <label for="langSelect" class="text-muted">🌐</label>
+                <select id="langSelect" aria-label="Language selector"></select>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="sidebar-container">
+                <!-- Left Icon Rail (52px) -->
+                <div id="sidebarRail">
+                    <button class="sidebar-tab-icon active" data-tab="models" title="📦 Models">📦</button>
+                    <button class="sidebar-tab-icon" data-tab="align" title="🎯 Align">🎯</button>
+                    <button class="sidebar-tab-icon" data-tab="export" title="📥 Export">📥</button>
+                </div>
+
+                <!-- Slide-in Panel (280px) -->
+                <div id="sidebarPanel" class="open">
+                    <div class="sidebar-panel-scroll">
+                        <!-- Tab 1: Models -->
+                        <div id="sidebarContentModels" class="sidebar-content active">
+                            <div id="sidebarUploadZone" class="sidebar-upload-zone">
+                                <span class="sidebar-upload-icon">📤</span>
+                                <div class="sidebar-upload-text">Drop model here</div>
+                                <div class="sidebar-upload-hint">or click to browse</div>
+                            </div>
+                            <input type="file" id="sidebarFileInput" accept=".obj,.stl,.glb,.gltf" multiple>
+                            <div id="sidebarModelList"></div>
+                        </div>
+
+                        <!-- Tab 2: Align -->
+                        <div id="sidebarContentAlign" class="sidebar-content">
+                            <div class="sidebar-align-section">
+                                <div class="sidebar-align-stepper">
+                                    <div class="sidebar-align-badge active" data-step="1">
+                                        <span class="sidebar-align-badge-dot"></span>
+                                        <span>Pick Base & Target</span>
+                                    </div>
+                                    <div class="sidebar-align-badge" data-step="2">
+                                        <span class="sidebar-align-badge-dot"></span>
+                                        <span>Mark Points on Base</span>
+                                    </div>
+                                    <div class="sidebar-align-badge" data-step="3">
+                                        <span class="sidebar-align-badge-dot"></span>
+                                        <span>Mark Points on Target</span>
+                                    </div>
+                                </div>
+                                <div class="sidebar-align-summary" id="sidebarAlignSummary">—</div>
+                            </div>
+                            <div class="sidebar-align-actions">
+                                <button class="sidebar-btn-align primary" id="sidebarBtnAlign" disabled>✓ Align</button>
+                                <button class="sidebar-btn-align cancel" id="sidebarBtnCancelAlign">✕ Cancel</button>
+                            </div>
+                        </div>
+
+                        <!-- Tab 3: Export -->
+                        <div id="sidebarContentExport" class="sidebar-content">
+                            <div class="sidebar-export-formats">
+                                <button class="sidebar-format-btn active" data-format="stl">STL</button>
+                                <button class="sidebar-format-btn" data-format="obj">OBJ</button>
+                                <button class="sidebar-format-btn" data-format="glb">GLB</button>
+                                <button class="sidebar-format-btn" data-format="gltf">GLTF</button>
+                            </div>
+                            <!-- Hidden select for scriptcompat with export.js and storage.js -->
+                            <select id="exportFormat" style="display:none;">
+                                <option value="stl" selected>STL</option>
+                                <option value="obj">OBJ</option>
+                                <option value="glb">GLB</option>
+                                <option value="gltf">GLTF</option>
+                            </select>
+                            <div class="sidebar-export-options">
+                                <div class="sidebar-export-option">
+                                    <div class="sidebar-export-option-title">📦 Merged Model</div>
+                                    <div class="sidebar-export-option-size" id="exportSizeMerged">~ 2.5 MB</div>
+                                    <button class="sidebar-btn-download" id="sidebarBtnDownloadMerged">Download</button>
+                                </div>
+                                <div class="sidebar-export-option">
+                                    <div class="sidebar-export-option-title">📁 Each Separately</div>
+                                    <div class="sidebar-export-option-size" id="exportSizeSeparate">~ 4.2 MB</div>
+                                    <button class="sidebar-btn-download" id="sidebarBtnDownloadSeparate">Download</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <div class="controls">
+                    <div class="controls-btns">
+                        <button class="fullscreen-btn" id="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;">📏 סרגל</button>
+                        <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
+                        <button class="help-btn" onclick="toggleHelp()">❓ עזרה</button>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutYValue" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
+                            <span data-i18n="cutYLabel">חיתוך מלמעלה למטה</span>
+                        </label>
+                        <input type="range" id="cutY" class="slider" min="0" max="100" value="0">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutXValue" data-i18n="cutXValue">חיתוך רוחב: 0%</span>
+                            <span data-i18n="cutXLabel">חיתוך משמאל לימין</span>
+                        </label>
+                        <input type="range" id="cutX" class="slider" min="0" max="100" value="0">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutZValue" data-i18n="cutZValue">חיתוך עומק: 0%</span>
+                            <span data-i18n="cutZLabel">חיתוך מאחורה לקדימה</span>
+                        </label>
+                        <input type="range" id="cutZ" class="slider" min="0" max="100" value="0">
+                    </div>
+                </div>
+
+                <button class="close-fullscreen" data-i18n="closeFullscreen" onclick="toggleFullscreen()">✕ סגור מסך מלא</button>
+
+                <div class="fullscreen-controls" id="fullscreenControls">
+                    <button class="fullscreen-btn" id="rulerBtnFS" onclick="toggleRuler()" style="background:#5a5a8a;margin-bottom:8px;width:100%;">📏 סרגל</button>
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutYValueFS">חיתוך אנכי: 0%</span>
+                            <span>חיתוך מלמעלה למטה</span>
+                        </label>
+                        <input type="range" id="cutYFS" class="slider" min="0" max="100" value="0">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutXValueFS">חיתוך רוחב: 0%</span>
+                            <span>חיתוך משמאל לימין</span>
+                        </label>
+                        <input type="range" id="cutXFS" class="slider" min="0" max="100" value="0">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span class="value-display" id="cutZValueFS">חיתוך עומק: 0%</span>
+                            <span>חיתוך מאחורה לקדימה</span>
+                        </label>
+                        <input type="range" id="cutZFS" class="slider" min="0" max="100" value="0">
+                    </div>
+                </div>
+
+                <div class="viewer viewer-flex">
+                    <div id="canvas-container">
+                        <div class="instruction">
+                            <div class="instruction-icon">🏛️</div>
+                            <div>העלה מודלים תלת-ממדיים כדי להתחיל</div>
+                            <div class="instruction-hint">
+                                תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה<br>
+                                <strong>תמיכה מלאה ב: OBJ, STL, GLB, GLTF</strong><br>
+                                <strong>יישור גמיש: נקודות + הזזה ידנית!</strong>
+                            </div>
+                        </div>
+                        <div id="alignIsolationBanner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rulerOverlay" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.9em;pointer-events:none;z-index:10000;white-space:nowrap;"></div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="toggleHelp()" role="button" aria-label="סגור עזרה">&times;</span>
+            <div class="modal-body" id="helpContent">
+                <div class="loading-help">טוען את מדריך העזרה...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Units Modal -->
+    <div id="unitsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:28px 32px;max-width:480px;width:90%;color:#eee;font-family:inherit;direction:rtl;">
+            <h3 style="margin:0 0 8px;font-size:1.1em;">📐 יחידות מידה</h3>
+            <p id="unitsModalDesc" style="margin:0 0 18px;font-size:0.88em;color:#aaa;line-height:1.5;"></p>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:0.9em;display:block;margin-bottom:6px;">יחידת מידה לכל המודלים החדשים:</label>
+                <select id="unitsGlobalSelect" style="width:100%;padding:8px;border-radius:6px;background:#2a2a3e;color:#eee;border:1px solid #555;font-size:0.95em;">
+                    <option value="mm">מילימטר (mm)</option>
+                    <option value="cm">סנטימטר (cm)</option>
+                    <option value="m" selected>מטר (m)</option>
+                    <option value="inch">אינץ' (inch)</option>
+                    <option value="ft">רגל (ft)</option>
+                </select>
+            </div>
+            <div id="unitsPerModelSection" style="display:none;margin-bottom:16px;">
+                <div style="background:#ff9800;color:#000;padding:8px 12px;border-radius:6px;font-size:0.85em;margin-bottom:12px;">
+                    ⚠️ נזהה הבדל גדול בגודל בין המודלים — ייתכן שיש להם יחידות שונות.
+                </div>
+                <div id="unitsPerModelList"></div>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+                <button onclick="confirmUnits()" style="padding:8px 22px;border-radius:6px;background:#4a9;border:none;color:#fff;cursor:pointer;font-size:0.95em;">אישור</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/markdown" id="readmeTemplate"></script>
+<script>
+    // Fallback README content for file:// protocol support
+    const fallbackReadme = "# DigiTrace Help\n\n## Getting Started\n- Upload 3D models (OBJ, STL, GLB, GLTF)\n- Align multiple models using reference points\n- Analyze stratigraphic layers\n- Export aligned models\n\nFor full documentation, see the README.md file.";
+    
+    fetch('README.md')
+        .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+        .then(data => {
+            document.getElementById('readmeTemplate').textContent = data;
+            try {
+                document.getElementById('helpContent').innerHTML = marked.parse(data);
+            } catch (e) {
+                document.getElementById('helpContent').innerHTML = marked.parse(fallbackReadme);
+            }
+        })
+        .catch(() => { 
+            document.getElementById('readmeTemplate').textContent = fallbackReadme;
+            try {
+                document.getElementById('helpContent').innerHTML = marked.parse(fallbackReadme);
+            } catch (e) {
+                document.getElementById('helpContent').innerHTML = "<p>Unable to load help content. The app is running from a local file which has CORS restrictions. For the best experience, run a local web server.</p>";
+            }
+        });
+</script>
+
+    <!-- Floating Clipping Controls Toolbar -->
+    <div id="floatingClippingToolbar">
+        <div class="clipping-control-group">
+            <label class="clipping-label">Vertical</label>
+            <input type="range" id="cutYFloat" class="clipping-slider" min="0" max="100" value="0">
+            <span class="clipping-value" id="cutYValueFloat">0%</span>
+        </div>
+        <div class="clipping-control-group">
+            <label class="clipping-label">Width</label>
+            <input type="range" id="cutXFloat" class="clipping-slider" min="0" max="100" value="0">
+            <span class="clipping-value" id="cutXValueFloat">0%</span>
+        </div>
+        <div class="clipping-control-group">
+            <label class="clipping-label">Depth</label>
+            <input type="range" id="cutZFloat" class="clipping-slider" min="0" max="100" value="0">
+            <span class="clipping-value" id="cutZValueFloat">0%</span>
+        </div>
+    </div>
+
+    <!-- Application JS modules (order matters) -->
+    <script src="sidebar-controller.js"></script>
+    <script src="constants.js"></script>
+    <script src="scene.js"></script>
+    <script src="loaders.js"></script>
+    <script src="export.js"></script>
+    <script src="tools.js"></script>
+    <script src="alignment.js"></script>
+    <script src="models.js"></script>
+    <script src="storage.js"></script>
+    <script src="ui.js"></script>
+    <script src="translations.js"></script>
+    <script src="i18n.js"></script>    
+</body>
+</html>
