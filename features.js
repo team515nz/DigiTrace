@@ -195,6 +195,7 @@ function deleteModel(id) {
 
 function updateDownloadSection() {
     const section = document.getElementById('downloadSection');
+    if (!section) return;
     if (models.filter(m => m.visible).length > 0) section.classList.remove('hidden');
     else section.classList.add('hidden');
 }
