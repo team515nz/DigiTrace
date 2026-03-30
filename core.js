@@ -75,10 +75,17 @@ function getColorInfo(hexNum) {
 
 // ─── Scene Setup ────────────────────────────────────────────────────────── 
 function initThreeJS() {
+    console.log('[DigiTrace] initThreeJS() called');
     const container = document.getElementById('canvas-container');
+    if (!container) {
+        console.error('[DigiTrace] initThreeJS: #canvas-container element NOT FOUND in DOM!');
+        return;
+    }
+    console.log('[DigiTrace] canvas-container found:', container.clientWidth, 'x', container.clientHeight);
     const instruction = container.querySelector('.instruction');
     if (instruction) instruction.remove();
     scene = new THREE.Scene();
+    console.log('[DigiTrace] THREE.Scene created successfully');
     scene.background = new THREE.Color(0x87CEEB);
     const aspect = container.clientWidth / container.clientHeight;
     camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);

@@ -511,13 +511,36 @@ window.addEventListener('click', (event) => {
 document.addEventListener('sidebar:filesSelected', async (e) => {
     const files = e.detail.files;
     if (!files.length) return;
-    
+
+    // ── DEBUG ──────────────────────────────────────────────────────────────
+    console.log('[DigiTrace] sidebar:filesSelected fired', {
+        fileCount: files.length,
+        sceneExists: typeof scene !== 'undefined' && !!scene,
+        rendererExists: typeof renderer !== 'undefined' && !!renderer,
+        canvasContainer: !!document.getElementById('canvas-container'),
+        THREE_loaded: typeof THREE !== 'undefined',
+    });
+    // ──────────────────────────────────────────────────────────────────────
+
+    // Ensure the 3D scene is initialized before loading any model
+    if (!scene) {
+        console.warn('[DigiTrace] scene not ready — calling initThreeJS() now');
+        try {
+            initThreeJS();
+            console.log('[DigiTrace] initThreeJS() completed. scene:', !!scene, 'renderer:', !!renderer);
+        } catch (initErr) {
+            console.error('[DigiTrace] initThreeJS() threw an error:', initErr);
+        }
+    }
+
     for (const file of files) {
         try {
             let color = MODEL_COLORS[models.length % MODEL_COLORS.length].hex;
+            console.log('[DigiTrace] Loading file:', file.name, '| scene:', !!scene);
             await addModelFromFile(file, color);
             showToast(`✓ Loaded: ${file.name}`);
         } catch (error) {
+            console.error('[DigiTrace] addModelFromFile failed for', file.name, error);
             showToast(`✗ Error loading ${file.name}`, 'error');
         }
     }
