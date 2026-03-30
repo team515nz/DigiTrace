@@ -397,8 +397,16 @@ async function restoreFullSession() {
                 models.push({id:modelCounter++,name:meta.name,date:meta.date,group:mainGroup,meshes:mainGroup.children,visible:meta.visible,originalGeometries:mainGroup.children.map(m=>m.geometry.clone()),color,unit:meta.unit||'m'});
             } catch(e) { console.warn('restore model error:',meta.name,e); }
         }
-        loadingMsg.classList.add('hidden');
-        updateModelList(); calculateGlobalBoundingBox(); updateCameraPosition(); applyCuts(); restorePendingRuler();
+        if(loadingMsg) loadingMsg.classList.add('hidden');
+        // Wait for sidebarController to be ready (it initializes with a 100ms delay)
+        const _doRestore = () => {
+            updateModelList(); calculateGlobalBoundingBox(); updateCameraPosition(); applyCuts(); restorePendingRuler();
+        };
+        if (typeof sidebarController !== 'undefined' && sidebarController) {
+            _doRestore();
+        } else {
+            setTimeout(_doRestore, 200);
+        }
         return true;
     } catch(e) { console.warn('restoreFullSession error:',e); return false; }
 }

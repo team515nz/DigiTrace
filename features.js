@@ -64,11 +64,6 @@ async function addModelFromFile(file, color, unit = 'm') {
         restoreModelTransform(modelData);
         saveModelToIDB(modelData);
         updateModelList();
-        
-        if (typeof sidebarController !== 'undefined') {
-            sidebarController.addModelToList(modelData);
-        }
-        
         calculateGlobalBoundingBox();
         if (models.length === 1) adjustCameraToModel();
         if (models.length > 1 && anchorState.points.length >= 2) {
@@ -88,6 +83,22 @@ async function addModelFromFile(file, color, unit = 'm') {
 }
 
 function updateModelList() {
+    // If sidebarController is active, rebuild via it to avoid HTML conflicts
+    if (typeof sidebarController !== 'undefined' && sidebarController) {
+        const listContainer = document.getElementById('sidebarModelList');
+        if (listContainer) {
+            listContainer.innerHTML = '';
+            models.forEach(model => {
+                const item = sidebarController.createModelListItem(model);
+                listContainer.appendChild(item);
+            });
+            sidebarController.updateUploadZoneVisibility();
+        }
+        updateDownloadSection();
+        return;
+    }
+
+    // Legacy fallback
     const listContainer = document.getElementById('sidebarModelList');
     if (!listContainer) return;
     listContainer.innerHTML = '';
@@ -195,7 +206,6 @@ function deleteModel(id) {
 
 function updateDownloadSection() {
     const section = document.getElementById('downloadSection');
-    if (!section) return;
     if (models.filter(m => m.visible).length > 0) section.classList.remove('hidden');
     else section.classList.add('hidden');
 }
