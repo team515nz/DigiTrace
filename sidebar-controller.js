@@ -3,7 +3,7 @@
 
 class SidebarController {
     constructor() {
-        this.activeTab = 'models'; // 'models', 'align', 'export'
+        this.activeTab = 'models'; // 'models', 'export'
         this.panelOpen = true;
         this.rail = document.getElementById('sidebarRail');
         this.panel = document.getElementById('sidebarPanel');
@@ -58,11 +58,16 @@ class SidebarController {
         // Open panel if not already open
         if (!this.panelOpen) this.openPanel();
 
+        // If align tab, trigger the align panel setup
+        if (tabName === 'align') {
+            if (typeof openAlignPanel === 'function') {
+                openAlignPanel();
+            }
+        }
+
         // Emit event for 3D scene
         this.emitEvent('sidebar:tabChanged', { tab: tabName });
         this.saveState();
-
-        if (tabName === 'align' && typeof openAlignPanel === 'function') openAlignPanel();
     }
 
     openPanel() {
@@ -89,6 +94,16 @@ class SidebarController {
         exportBtn.style.cursor = enabled ? '' : 'not-allowed';
         if (!enabled && this.activeTab === 'export') {
             this.openTab('models');
+        }
+        // Enable align tab only when there are 2+ models
+        const alignBtn = this.rail.querySelector('[data-tab="align"]');
+        if (alignBtn) {
+            const modelCount = typeof models !== 'undefined' ? models.length : 0;
+            const alignEnabled = modelCount >= 2;
+            alignBtn.disabled = !alignEnabled;
+            alignBtn.style.opacity = alignEnabled ? '' : '0.4';
+            alignBtn.style.cursor = alignEnabled ? '' : 'not-allowed';
+            alignBtn.title = alignEnabled ? '🎯 Align' : '🎯 Align (upload 2+ models first)';
         }
     }
 
@@ -169,8 +184,8 @@ class SidebarController {
                 <div class="sidebar-model-dot" style="background-color: ${colorInfo.hex};" title="${colorInfo.name}"></div>
                 <div class="sidebar-model-name">${modelData.name}</div>
                 <span class="sidebar-model-badge">${modelData.format || 'GLB'}</span>
-                <button class="sidebar-model-eye" data-model-id="${modelData.id}" title="Toggle visibility">👁️</button>
-                <button class="sidebar-model-menu" data-model-id="${modelData.id}" title="Options">⋮</button>
+                <button class="sidebar-model-eye" data-model-id="${modelData.id}" title="${window.t('toggleVisibility')}">👁️</button>
+                <button class="sidebar-model-menu" data-model-id="${modelData.id}" title="${window.t('options')}">⋮</button>
             </div>
         `;
 
@@ -215,9 +230,9 @@ class SidebarController {
         const menu = document.createElement('div');
         menu.className = 'sidebar-context-menu';
         menu.innerHTML = `
-            <button data-action="setBase" data-model-id="${modelId}">📌 Set as Base</button>
-            <button data-action="download" data-model-id="${modelId}">📥 Download</button>
-            <button data-action="remove" data-model-id="${modelId}" style="color: #ff6b6b;">🗑️ Remove</button>
+            <button data-action="setBase" data-model-id="${modelId}">${window.t('menuSetAsBase')}</button>
+            <button data-action="download" data-model-id="${modelId}">${window.t('menuDownload')}</button>
+            <button data-action="remove" data-model-id="${modelId}" style="color: #ff6b6b;">${window.t('menuRemove')}</button>
         `;
 
         menu.addEventListener('click', (e) => {
@@ -244,32 +259,6 @@ class SidebarController {
                 document.removeEventListener('click', closeMenu);
             });
         });
-    }
-
-    // ─── Alignment Tab ──────────────────────────────────────────
-    updateAlignmentUI(state) {
-        // Update stepper badges
-        const badges = document.querySelectorAll('.sidebar-align-badge');
-        badges.forEach(b => b.classList.remove('active', 'done'));
-        
-        if (state.step > 1) badges[0]?.classList.add('done');
-        if (state.step >= 1) badges[state.step - 1]?.classList.add('active');
-
-        // Update summary bar
-        const summary = document.getElementById('sidebarAlignSummary');
-        if (summary && state.baseModel && state.targetModel) {
-            summary.textContent = `Base: ${state.baseModel.name} → Target: ${state.targetModel.name}`;
-        }
-
-        // Update point counters
-        if (state.points1 !== undefined) {
-            const badge1 = document.getElementById('sidebarPointsBadge1');
-            if (badge1) badge1.textContent = `${state.points1} / ${state.minPoints}`;
-        }
-        if (state.points2 !== undefined) {
-            const badge2 = document.getElementById('sidebarPointsBadge2');
-            if (badge2) badge2.textContent = `${state.points2} / ${state.minPoints}`;
-        }
     }
 
     // ─── Export Tab ─────────────────────────────────────────────
@@ -304,8 +293,8 @@ class SidebarController {
         const saved = localStorage.getItem('sidebarState');
         if (saved) {
             const state = JSON.parse(saved);
-            this.activeTab = state.activeTab || 'models';
-            // Open the default tab
+            const validTab = (state.activeTab && this.tabs[state.activeTab]) ? state.activeTab : 'models';
+            this.activeTab = validTab;
             this.openTab(this.activeTab);
         }
     }

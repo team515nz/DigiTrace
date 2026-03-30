@@ -73,7 +73,14 @@
     "colorAzure": "Azure",
     "colorPink": "Pink",
     "colorCream": "Cream",
-    "colorCustom": "Custom"
+    "colorCustom": "Custom",
+    "menuSetAsBase": "📌 Set as Base",
+    "menuDownload": "📥 Download",
+    "menuRemove": "🗑️ Remove",
+    "toggleVisibility": "Toggle visibility",
+    "options": "Options",
+    "dropModelHereZone": "Drop 3D model here",
+    "orClickToBrowseZone": "or click to browse"
   },
   "he": {
     "nativeName": "עברית",
@@ -149,6 +156,13 @@
     "colorAzure": "תכלת",
     "colorPink": "ורוד",
     "colorCream": "שמנת",
-    "colorCustom": "מותאם"
+    "colorCustom": "מותאם",
+    "menuSetAsBase": "📌 הגדר כבסיס",
+    "menuDownload": "📥 הורד",
+    "menuRemove": "🗑️ הסר",
+    "toggleVisibility": "הצג/הסתר",
+    "options": "אפשרויות",
+    "dropModelHereZone": "שחרר מודל 3D כאן",
+    "orClickToBrowseZone": "או לחץ לעיון"
   }
 }
