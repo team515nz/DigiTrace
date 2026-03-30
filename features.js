@@ -205,9 +205,17 @@ function deleteModel(id) {
 }
 
 function updateDownloadSection() {
+    const hasVisible = models.filter(m => m.visible).length > 0;
+    // Control legacy downloadSection if present
     const section = document.getElementById('downloadSection');
-    if (models.filter(m => m.visible).length > 0) section.classList.remove('hidden');
-    else section.classList.add('hidden');
+    if (section) {
+        if (hasVisible) section.classList.remove('hidden');
+        else section.classList.add('hidden');
+    }
+    // Control sidebar export tab availability
+    if (typeof sidebarController !== 'undefined' && sidebarController.setExportTabEnabled) {
+        sidebarController.setExportTabEnabled(hasVisible);
+    }
 }
 
 function applyCuts() {
@@ -318,17 +326,14 @@ function openAlignPanel() {
     const cur1 = parseInt(sel1.value);
     let cur2 = parseInt(sel2.value);
     if (cur2 === cur1) { const other = ids.find(id => id !== cur1); if (other !== undefined) sel2.value = other; }
-    document.getElementById('alignSection').classList.remove('hidden');
     alignSetStep(1);
     updateModelList();
 }
 
 function alignSetStep(n) {
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 3; i++) {
         const dot = document.getElementById('stepDot'+i);
-        dot.classList.remove('active','done');
-        if (i < n) dot.classList.add('done');
-        else if (i === n) dot.classList.add('active');
+        if (dot) { dot.classList.remove('active','done'); if (i < n) dot.classList.add('done'); else if (i === n) dot.classList.add('active'); }
         const page = document.getElementById('alignPage'+i);
         if (page) { page.classList.remove('active'); if (i === n) page.classList.add('active'); }
     }
@@ -655,9 +660,9 @@ function cleanupAlignState() {
     });
     restoreTint(); restoreIsolation();
     alignState = { active:false, mode:'points', phase:'base', model1:null, model2:null, selectingModel:null, points1:[], points2:[], markers:[], minPoints:3, manualBasePos:null, manualBaseRot:null, manualBaseScale:null, hiddenModels:[] };
-    document.getElementById('alignSection').classList.add('hidden');
     document.getElementById('canvas-container').classList.remove('align-mode', 'move-mode');
     hideAlignBanner(); updateModelList();
+    if (typeof sidebarController !== 'undefined') sidebarController.openTab('models');
 }
 
 function cancelAlignment() {
@@ -847,11 +852,11 @@ function setRulerBtnStyle(active, finished) {
 
 function toggleRuler() {
     if (rulerState.active || rulerState.finished) { cancelRuler(); return; }
-    if (!scene) { showToast('העלה מודל תחילה', 'error'); return; }
+    if (!scene) { showToast(typeof t === 'function' ? t('uploadFirst') : 'Upload a model first', 'error'); return; }
     rulerState.active=true; rulerState.finished=false; rulerState.points=[]; clearRulerObjects();
     setRulerBtnStyle(true, false);
     document.getElementById('canvas-container').style.cursor='crosshair';
-    showRulerOverlay('📏 לחץ על נקודה ראשונה במודל');
+    showRulerOverlay(typeof t === 'function' ? t('rulerPoint1') : '📏 Click first point on model');
 }
 
 function cancelRuler() {
@@ -890,7 +895,7 @@ function pickRulerPoint(clientX, clientY) {
     const sphereMat=new THREE.MeshBasicMaterial({color:0xFFFF00,depthTest:false,depthWrite:false});
     const sphere=new THREE.Mesh(sphereGeo,sphereMat); sphere.position.copy(point);
     rulerScene.add(sphere); rulerState.markers.push(sphere); rulerState.points.push(point);
-    if(rulerState.points.length===1){rulerState.modelUnit=hitUnit;showRulerOverlay('📏 לחץ על נקודה שנייה');}
+    if(rulerState.points.length===1){rulerState.modelUnit=hitUnit;showRulerOverlay(typeof t==='function'?t('rulerPoint2'):'📏 Click second point');}
     else if(rulerState.points.length===2){
         const lineGeo=new THREE.BufferGeometry().setFromPoints(rulerState.points);
         const lineMat=new THREE.LineBasicMaterial({color:0xFFFF00,linewidth:2,depthTest:false,depthWrite:false});
@@ -899,7 +904,9 @@ function pickRulerPoint(clientX, clientY) {
         const hitModel=allMeshes[0]?._modelRef;
         let distReal=distScene; let unitLabel=rulerState.modelUnit;
         if(hitModel&&hitModel.group){const sc=hitModel.group.scale.x;if(sc&&sc!==1)distReal=distScene/sc;}
-        showRulerOverlay(`📏 מרחק: ${formatDistance(distReal,unitLabel)}   (לחץ 📏 לסגירה)`);
+        const distLabel=typeof t==='function'?t('rulerDistance'):'📏 Distance';
+        const closeSuffix=typeof t==='function'?t('rulerDistanceSuffix'):'(click 📏 to close)';
+        showRulerOverlay(`${distLabel}: ${formatDistance(distReal,unitLabel)}   ${closeSuffix}`);
         rulerState.active=false; rulerState.finished=true;
         setRulerBtnStyle(false, true); document.getElementById('canvas-container').style.cursor='';
     }

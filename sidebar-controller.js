@@ -61,6 +61,8 @@ class SidebarController {
         // Emit event for 3D scene
         this.emitEvent('sidebar:tabChanged', { tab: tabName });
         this.saveState();
+
+        if (tabName === 'align' && typeof openAlignPanel === 'function') openAlignPanel();
     }
 
     openPanel() {
@@ -77,6 +79,17 @@ class SidebarController {
 
     togglePanel() {
         this.panelOpen ? this.closePanel() : this.openPanel();
+    }
+
+    setExportTabEnabled(enabled) {
+        const exportBtn = this.rail.querySelector('[data-tab="export"]');
+        if (!exportBtn) return;
+        exportBtn.disabled = !enabled;
+        exportBtn.style.opacity = enabled ? '' : '0.4';
+        exportBtn.style.cursor = enabled ? '' : 'not-allowed';
+        if (!enabled && this.activeTab === 'export') {
+            this.openTab('models');
+        }
     }
 
     // ─── Upload Zone ────────────────────────────────────────────

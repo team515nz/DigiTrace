@@ -661,6 +661,7 @@ window.TRANSLATIONS = {
     "executeAlignBtn": "Align Models",
     "cancelBtn": "Cancel",
     "fullscreenBtn": "🖵 Fullscreen",
+    "rulerBtn": "📏 Ruler",
     "helpBtn": "❓ Help",
     "cutYValue": "Vertical cut: 0%",
     "cutXValue": "Horizontal cut: 0%",
@@ -669,7 +670,12 @@ window.TRANSLATIONS = {
     "cutXLabel": "Horizontal cut (left → right)",
     "cutZLabel": "Depth cut (back → front)",
     "closeFullscreen": "✕ Close Fullscreen",
-    "colorLabel": "Color"
+    "colorLabel": "Color",
+    "rulerPoint1": "📏 Click first point on model",
+    "rulerPoint2": "📏 Click second point",
+    "rulerDistanceSuffix": "(click 📏 to close)",
+    "rulerDistance": "📏 Distance",
+    "uploadFirst": "Upload a model first"
   },
   "he": {
     "nativeName": "עברית",
@@ -689,6 +695,7 @@ window.TRANSLATIONS = {
     "executeAlignBtn": "יישר מודלים",
     "cancelBtn": "ביטול",
     "fullscreenBtn": "🖵 מסך מלא",
+    "rulerBtn": "📏 סרגל",
     "helpBtn": "❓ עזרה",
     "cutYValue": "חיתוך אנכי: 0%",
     "cutXValue": "חיתוך רוחב: 0%",
@@ -697,8 +704,20 @@ window.TRANSLATIONS = {
     "cutXLabel": "חיתוך משמאל לימין",
     "cutZLabel": "חיתוך מאחורה לקדימה",
     "closeFullscreen": "✕ סגור מסך מלא",
-    "colorLabel": "צבע"
+    "colorLabel": "צבע",
+    "rulerPoint1": "📏 לחץ על נקודה ראשונה במודל",
+    "rulerPoint2": "📏 לחץ על נקודה שנייה",
+    "rulerDistanceSuffix": "(לחץ 📏 לסגירה)",
+    "rulerDistance": "📏 מרחק",
+    "uploadFirst": "העלה מודל תחילה"
   }
+};
+
+// ─── Translation helper ────────────────────────────────────────────────────
+window.t = function(key) {
+    const lang = document.documentElement.lang || 'en';
+    const dict = (window.TRANSLATIONS || {})[lang] || (window.TRANSLATIONS || {})['en'] || {};
+    return dict[key] !== undefined ? dict[key] : key;
 };
 
 // ─── i18n Initialization ───────────────────────────────────────────────────

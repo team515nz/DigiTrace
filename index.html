@@ -65,26 +65,120 @@
 
                         <!-- Tab 2: Align -->
                         <div id="sidebarContentAlign" class="sidebar-content">
-                            <div class="sidebar-align-section">
-                                <div class="sidebar-align-stepper">
-                                    <div class="sidebar-align-badge active" data-step="1">
-                                        <span class="sidebar-align-badge-dot"></span>
-                                        <span>Pick Base & Target</span>
-                                    </div>
-                                    <div class="sidebar-align-badge" data-step="2">
-                                        <span class="sidebar-align-badge-dot"></span>
-                                        <span>Mark Points on Base</span>
-                                    </div>
-                                    <div class="sidebar-align-badge" data-step="3">
-                                        <span class="sidebar-align-badge-dot"></span>
-                                        <span>Mark Points on Target</span>
+                            <div id="alignSection">
+                                <div class="align-panel-header">
+                                    <div class="align-panel-title">
+                                        <span class="title-icon">🎯</span>
+                                        Model Alignment
                                     </div>
                                 </div>
-                                <div class="sidebar-align-summary" id="sidebarAlignSummary">—</div>
-                            </div>
-                            <div class="sidebar-align-actions">
-                                <button class="sidebar-btn-align primary" id="sidebarBtnAlign" disabled>✓ Align</button>
-                                <button class="sidebar-btn-align cancel" id="sidebarBtnCancelAlign">✕ Cancel</button>
+                                <div class="align-steps-track">
+                                    <div class="align-step-dot active" id="stepDot1">
+                                        <div class="step-circle">1</div>
+                                        <div class="step-label">Pick Models</div>
+                                    </div>
+                                    <div class="align-step-dot" id="stepDot2">
+                                        <div class="step-circle">2</div>
+                                        <div class="step-label">Base Points</div>
+                                    </div>
+                                    <div class="align-step-dot" id="stepDot3">
+                                        <div class="step-circle">3</div>
+                                        <div class="step-label">Target Points</div>
+                                    </div>
+                                </div>
+                                <div class="align-panel-body">
+                                    <!-- Step 1: Pick models -->
+                                    <div id="alignPage1" class="align-step-page active">
+                                        <div class="align-model-selector">
+                                            <div class="align-model-selector-label label-base">🔒 Base Model</div>
+                                            <select id="alignModel1Select" class="align-model-select"></select>
+                                        </div>
+                                        <div class="align-model-selector">
+                                            <div class="align-model-selector-label label-target">🎯 Target Model</div>
+                                            <select id="alignModel2Select" class="align-model-select"></select>
+                                        </div>
+                                        <label style="display:flex;align-items:center;gap:6px;font-size:0.78em;color:rgba(255,255,255,0.5);margin-bottom:12px;">
+                                            <input type="checkbox" id="alignIsolationToggle" checked> Hide other models
+                                        </label>
+                                        <div class="align-mode-tabs">
+                                            <button id="tabPoints" class="align-mode-tab active" onclick="setAlignMode('points')">📍 Points</button>
+                                            <button id="tabManual" class="align-mode-tab" onclick="setAlignMode('manual')">✋ Manual</button>
+                                        </div>
+                                        <div class="align-actions-row">
+                                            <button class="align-btn-primary" onclick="alignStartStep2()">Next →</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2: Mark base points -->
+                                    <div id="alignPage2" class="align-step-page">
+                                        <div id="subpanelPoints" class="align-subpanel active">
+                                            <div class="align-phase-badge phase-badge-base">
+                                                <div class="phase-badge-dot"></div>
+                                                <span id="alignPhaseLabelBase">Click on base model</span>
+                                            </div>
+                                            <div class="align-hint">Click points on the base model (🟠). Need at least 3 points.</div>
+                                            <div class="align-counter-row">
+                                                <span class="align-counter-label">Points marked</span>
+                                                <span class="align-counter-value" id="base1Counter">0</span>
+                                            </div>
+                                            <div class="align-actions-row">
+                                                <button class="align-btn-undo" onclick="undoLastPoint()">↩</button>
+                                                <button id="btnToStep3" class="align-btn-primary" disabled onclick="alignGoToStep3()">Next →</button>
+                                            </div>
+                                        </div>
+                                        <div id="subpanelManualBase" class="align-subpanel">
+                                            <div class="align-phase-badge phase-badge-base">
+                                                <div class="phase-badge-dot"></div>
+                                                <span>Ready — proceed to target</span>
+                                            </div>
+                                            <div class="align-actions-row">
+                                                <button class="align-btn-primary" onclick="alignGoToStep3()">Next →</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 3: Mark target points / manual transform -->
+                                    <div id="alignPage3" class="align-step-page">
+                                        <div id="subpanelPointsTarget" class="align-subpanel active">
+                                            <div class="align-phase-badge phase-badge-target">
+                                                <div class="phase-badge-dot"></div>
+                                                <span id="alignPhaseLabelTarget">Click on target model</span>
+                                            </div>
+                                            <div class="align-hint">Mark <span id="requiredPointsLabel">3</span> matching points on the target (🔵).</div>
+                                            <div class="align-counter-row">
+                                                <span class="align-counter-label">Points marked</span>
+                                                <span class="align-counter-value" id="targetCounter">0</span>
+                                            </div>
+                                            <div class="align-actions-row">
+                                                <button class="align-btn-undo" onclick="undoLastPoint()">↩</button>
+                                                <button id="btnExecuteAlign" class="align-btn-primary" disabled onclick="executeAlignment()">✓ Align</button>
+                                            </div>
+                                            <div class="align-actions-row">
+                                                <button class="align-btn-secondary" onclick="alignBackToStep2()">← Back</button>
+                                            </div>
+                                        </div>
+                                        <div id="subpanelManualTransform" class="align-subpanel">
+                                            <div class="align-phase-badge phase-badge-target">
+                                                <div class="phase-badge-dot"></div>
+                                                <span>Manual Transform</span>
+                                            </div>
+                                            <div style="font-size:0.75em;color:rgba(255,255,255,0.5);margin-bottom:4px;">Translation</div>
+                                            <div class="manual-slider-row">X <input type="range" id="txSlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()"> <input type="number" id="txVal" value="0.00" step="0.01" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('tx')"></div>
+                                            <div class="manual-slider-row">Y <input type="range" id="tySlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()"> <input type="number" id="tyVal" value="0.00" step="0.01" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('ty')"></div>
+                                            <div class="manual-slider-row">Z <input type="range" id="tzSlider" min="-10" max="10" step="0.01" value="0" oninput="applyManualTransform()"> <input type="number" id="tzVal" value="0.00" step="0.01" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('tz')"></div>
+                                            <div style="font-size:0.75em;color:rgba(255,255,255,0.5);margin:8px 0 4px;">Rotation (°)</div>
+                                            <div class="manual-slider-row">X <input type="range" id="rxSlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()"> <input type="number" id="rxVal" value="0" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('rx')"></div>
+                                            <div class="manual-slider-row">Y <input type="range" id="rySlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()"> <input type="number" id="ryVal" value="0" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('ry')"></div>
+                                            <div class="manual-slider-row">Z <input type="range" id="rzSlider" min="-180" max="180" step="1" value="0" oninput="applyManualTransform()"> <input type="number" id="rzVal" value="0" style="width:46px;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:4px;padding:2px 4px;" onchange="syncSliderFromInput('rz')"></div>
+                                            <div class="align-actions-row">
+                                                <button class="align-btn-secondary" onclick="resetManualTransform()">Reset</button>
+                                                <button class="align-btn-primary" onclick="confirmManualAlignment()">✓ Confirm</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button class="align-btn-cancel" id="sidebarBtnCancelAlign" onclick="cancelAlignment()">✕ Cancel Alignment</button>
+                                </div>
                             </div>
                         </div>
 
@@ -123,9 +217,9 @@
             <div class="main-content">
                 <div class="controls">
                     <div class="controls-btns">
-                        <button class="fullscreen-btn" id="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;">📏 סרגל</button>
-                        <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
-                        <button class="help-btn" onclick="toggleHelp()">❓ עזרה</button>
+                        <button class="fullscreen-btn" id="rulerBtn" data-i18n="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;">📏 Ruler</button>
+                        <button class="fullscreen-btn" data-i18n="fullscreenBtn" onclick="toggleFullscreen()">🖵 Fullscreen</button>
+                        <button class="help-btn" data-i18n="helpBtn" onclick="toggleHelp()">❓ Help</button>
                     </div>
                     <div class="control-group">
                         <label>
@@ -153,25 +247,25 @@
                 <button class="close-fullscreen" data-i18n="closeFullscreen" onclick="toggleFullscreen()">✕ סגור מסך מלא</button>
 
                 <div class="fullscreen-controls" id="fullscreenControls">
-                    <button class="fullscreen-btn" id="rulerBtnFS" onclick="toggleRuler()" style="background:#5a5a8a;margin-bottom:8px;width:100%;">📏 סרגל</button>
+                    <button class="fullscreen-btn" id="rulerBtnFS" data-i18n="rulerBtn" onclick="toggleRuler()" style="background:#5a5a8a;margin-bottom:8px;width:100%;">📏 Ruler</button>
                     <div class="control-group">
                         <label>
-                            <span class="value-display" id="cutYValueFS">חיתוך אנכי: 0%</span>
-                            <span>חיתוך מלמעלה למטה</span>
+                            <span class="value-display" id="cutYValueFS" data-i18n="cutYValue">Vertical cut: 0%</span>
+                            <span data-i18n="cutYLabel">Vertical cut (top → bottom)</span>
                         </label>
                         <input type="range" id="cutYFS" class="slider" min="0" max="100" value="0">
                     </div>
                     <div class="control-group">
                         <label>
-                            <span class="value-display" id="cutXValueFS">חיתוך רוחב: 0%</span>
-                            <span>חיתוך משמאל לימין</span>
+                            <span class="value-display" id="cutXValueFS" data-i18n="cutXValue">Horizontal cut: 0%</span>
+                            <span data-i18n="cutXLabel">Horizontal cut (left → right)</span>
                         </label>
                         <input type="range" id="cutXFS" class="slider" min="0" max="100" value="0">
                     </div>
                     <div class="control-group">
                         <label>
-                            <span class="value-display" id="cutZValueFS">חיתוך עומק: 0%</span>
-                            <span>חיתוך מאחורה לקדימה</span>
+                            <span class="value-display" id="cutZValueFS" data-i18n="cutZValue">Depth cut: 0%</span>
+                            <span data-i18n="cutZLabel">Depth cut (back → front)</span>
                         </label>
                         <input type="range" id="cutZFS" class="slider" min="0" max="100" value="0">
                     </div>
