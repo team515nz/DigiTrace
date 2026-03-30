@@ -229,7 +229,9 @@ class SidebarController {
     showModelMenu(event, modelId) {
         const menu = document.createElement('div');
         menu.className = 'sidebar-context-menu';
+        const isGizmoActive = (typeof activeGizmoModelId !== 'undefined') && activeGizmoModelId === parseInt(modelId);
         menu.innerHTML = `
+            <button data-action="move" data-model-id="${modelId}">${isGizmoActive ? '⏹ Stop Moving' : '↔️ Move (XYZ)'}</button>
             <button data-action="setBase" data-model-id="${modelId}">${window.t('menuSetAsBase')}</button>
             <button data-action="download" data-model-id="${modelId}">${window.t('menuDownload')}</button>
             <button data-action="remove" data-model-id="${modelId}" style="color: #ff6b6b;">${window.t('menuRemove')}</button>
@@ -238,8 +240,10 @@ class SidebarController {
         menu.addEventListener('click', (e) => {
             const action = e.target.dataset.action;
             const mId = e.target.dataset.modelId;
-            
-            if (action === 'setBase') this.emitEvent('sidebar:setAsBase', { modelId: mId });
+
+            if (action === 'move') {
+                if (typeof activateGizmo === 'function') activateGizmo(parseInt(mId));
+            } else if (action === 'setBase') this.emitEvent('sidebar:setAsBase', { modelId: mId });
             else if (action === 'download') this.emitEvent('sidebar:downloadModel', { modelId: mId });
             else if (action === 'remove') this.emitEvent('sidebar:removeModel', { modelId: mId });
             

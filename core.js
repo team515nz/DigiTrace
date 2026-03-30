@@ -37,6 +37,11 @@ let rulerState = { active: false, finished: false, points: [], markers: [], line
 
 let pendingFiles = [], pendingColors = [];
 
+// ─── Transform Gizmo State ────────────────────────────────────────────────
+let transformControls = null;
+let gizmoDragging = false;
+let activeGizmoModelId = null;
+
 // ─── Constants ────────────────────────────────────────────────────────────
 const MODEL_COLORS = [
     { hex: 0xFF6B6B, css: '#FF6B6B', nameKey: 'colorRed' },
@@ -98,6 +103,22 @@ function initThreeJS() {
     rulerScene = new THREE.Scene();
     raycaster = new THREE.Raycaster();
     setupMouseControls();
+
+    // ─── XYZ Transform Gizmo ──────────────────────────────────────────────
+    if (typeof THREE.TransformControls !== 'undefined') {
+        transformControls = new THREE.TransformControls(camera, renderer.domElement);
+        transformControls.setMode('translate');
+        transformControls.addEventListener('dragging-changed', (event) => {
+            gizmoDragging = event.value;
+            if (!event.value && activeGizmoModelId !== null) {
+                calculateGlobalBoundingBox();
+                applyCuts();
+                saveSession();
+            }
+        });
+        scene.add(transformControls);
+    }
+
     animate();
 }
 
@@ -144,7 +165,7 @@ function setupMouseControls() {
         previousMousePosition = { x: e.clientX, y: e.clientY };
     });
     container.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
+        if (!isDragging || gizmoDragging) return;
         const deltaX = e.clientX - previousMousePosition.x;
         const deltaY = e.clientY - previousMousePosition.y;
         cameraRotation.horizontal -= deltaX * 0.5;

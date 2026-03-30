@@ -180,6 +180,26 @@ function rotateModelY(id) { const m = models.find(m=>m.id===id); if(m){m.group.r
 function rotateModelZ(id) { const m = models.find(m=>m.id===id); if(m){m.group.rotation.z+=Math.PI/2;calculateGlobalBoundingBox();applyCuts();saveSession();} }
 function rotateModelX(id) { const m = models.find(m=>m.id===id); if(m){m.group.rotation.x+=Math.PI/2;calculateGlobalBoundingBox();applyCuts();saveSession();} }
 
+// ─── XYZ GIZMO ─────────────────────────────────────────────────────────────
+
+function activateGizmo(id) {
+    if (!transformControls) return;
+    const model = models.find(m => m.id === id);
+    if (!model) return;
+    if (activeGizmoModelId === id) { deactivateGizmo(); return; }
+    transformControls.attach(model.group);
+    activeGizmoModelId = id;
+    updateModelList();
+    showToast('↔️ Drag the red/green/blue arrows to move. Press Esc to stop.');
+}
+
+function deactivateGizmo() {
+    if (!transformControls) return;
+    transformControls.detach();
+    activeGizmoModelId = null;
+    updateModelList();
+}
+
 function deleteModel(id) {
     const index = models.findIndex(m => m.id === id);
     if (index !== -1) {

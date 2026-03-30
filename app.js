@@ -505,6 +505,7 @@ async function loadReadme() {
 // ─── Keyboard Shortcuts ────────────────────────────────────────────────────
 window.addEventListener('keydown', e => {
     if(e.key==='Escape'){
+        if(activeGizmoModelId !== null) { deactivateGizmo(); return; }
         if(anchorState.picking){anchorState.picking=false;document.getElementById('canvas-container').style.cursor='';updateAnchorStatus();saveAnchorToStorage();}
         if(alignState.active)cancelAlignment();
     }
