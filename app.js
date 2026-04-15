@@ -701,6 +701,8 @@ window.t = function(key) {
                 document.body.style.textAlign = 'left';
                 document.body.classList.remove('rtl');
             }
+            if (typeof syncAlignModelPreview === 'function') syncAlignModelPreview();
+            if (typeof updateAlignCounters === 'function') updateAlignCounters();
         }
 
         langSelect.addEventListener('change', e => {

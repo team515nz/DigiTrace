@@ -335,22 +335,119 @@ function checkSizeDiscrepancy(newlyLoaded) {
 // ─── ALIGNMENT SYSTEM ───────────────────────────────────────────────────
 // ────────────────────────────────────────────────────────────────────────── 
 
+function alignUiText(key, fallback) {
+    if (typeof window.t === 'function') {
+        const translated = window.t(key);
+        if (translated && translated !== key) return translated;
+    }
+    return fallback;
+}
+
+function formatAlignUiText(key, fallback, replacements = {}) {
+    return alignUiText(key, fallback).replace(/\{(\w+)\}/g, (_, token) => {
+        return replacements[token] !== undefined ? replacements[token] : '';
+    });
+}
+
+function getAlignSelectValue(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el || el.value === '') return null;
+    const parsed = parseInt(el.value, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function getAlignModelName(modelId) {
+    const model = models.find(m => m.id === modelId);
+    return model ? model.name : alignUiText('alignNoModelSelected', 'Not selected');
+}
+
+function getCurrentAlignRequirement() {
+    return Math.max(alignState.minPoints, alignState.points1.length);
+}
+
+function updateAlignPhaseLabels() {
+    const baseLabel = document.getElementById('alignPhaseLabelBase');
+    const targetLabel = document.getElementById('alignPhaseLabelTarget');
+    if (baseLabel) {
+        baseLabel.textContent = formatAlignUiText(
+            'alignBasePhaseLabel',
+            'Click "{model}" to mark base points',
+            { model: getAlignModelName(alignState.model1) }
+        );
+    }
+    if (targetLabel) {
+        targetLabel.textContent = formatAlignUiText(
+            'alignTargetPhaseLabel',
+            'Click "{model}" to mark {count} matching points',
+            { model: getAlignModelName(alignState.model2), count: getCurrentAlignRequirement() }
+        );
+    }
+}
+
+function updateAlignOverviewStatus(id1, id2) {
+    const statusEl = document.getElementById('alignSummaryStatus');
+    if (!statusEl) return;
+    if (!Number.isFinite(id1) || !Number.isFinite(id2) || id1 === id2) {
+        statusEl.textContent = alignUiText('alignReadyState', 'Select two different models to begin');
+        return;
+    }
+    if (!alignState.active) {
+        statusEl.textContent = alignUiText('alignStatusSelect', 'Choose the fixed model and the model that should move');
+        return;
+    }
+    statusEl.textContent = alignState.phase === 'base'
+        ? alignUiText('alignStatusBase', 'Mark clear points on the base model in the order you want to reuse')
+        : alignUiText('alignStatusTarget', 'Repeat the same numbered order on the target model');
+}
+
+function renderAlignPointTokens(containerId, filledCount, totalCount, variant) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const total = Math.max(totalCount, 1);
+    container.innerHTML = Array.from({ length: total }, (_, index) => {
+        let stateClass = 'pending';
+        if (index < filledCount) stateClass = 'complete';
+        else if (index === filledCount && filledCount < total) stateClass = 'active';
+        return `<div class="align-point-token ${variant} ${stateClass}"><span class="align-point-token-number">${index + 1}</span></div>`;
+    }).join('');
+}
+
+function syncAlignModelPreview() {
+    const id1 = getAlignSelectValue('alignModel1Select');
+    const id2 = getAlignSelectValue('alignModel2Select');
+    const baseSummary = document.getElementById('alignSummaryBase');
+    const targetSummary = document.getElementById('alignSummaryTarget');
+    if (baseSummary) baseSummary.textContent = id1 !== null ? getAlignModelName(id1) : alignUiText('alignNoModelSelected', 'Not selected');
+    if (targetSummary) targetSummary.textContent = id2 !== null ? getAlignModelName(id2) : alignUiText('alignNoModelSelected', 'Not selected');
+    updateAlignOverviewStatus(id1, id2);
+}
+
 function openAlignPanel() {
     if (models.length < 2) { showToast('נדרשים לפחות 2 מודלים ליישור', 'error'); return; }
     const sel1 = document.getElementById('alignModel1Select');
     const sel2 = document.getElementById('alignModel2Select');
     sel1.innerHTML = models.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
     sel2.innerHTML = models.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-    if (baseModelId !== null) sel1.value = baseModelId;
+    if (alignState.active) {
+        if (alignState.model1 !== null) sel1.value = alignState.model1;
+        if (alignState.model2 !== null) sel2.value = alignState.model2;
+    } else if (baseModelId !== null) {
+        sel1.value = baseModelId;
+    }
     const ids = models.map(m => m.id);
     const cur1 = parseInt(sel1.value);
     let cur2 = parseInt(sel2.value);
     if (cur2 === cur1) { const other = ids.find(id => id !== cur1); if (other !== undefined) sel2.value = other; }
-    alignSetStep(1);
+    setAlignMode('points');
+    syncAlignModelPreview();
+    alignSetStep(alignState.active ? (alignState.phase === 'target' ? 3 : 2) : 1);
+    updateAlignCounters();
     updateModelList();
 }
 
 function alignSetStep(n) {
+    const section = document.getElementById('alignSection');
+    if (section) section.dataset.step = String(n);
     for (let i = 1; i <= 3; i++) {
         const dot = document.getElementById('stepDot'+i);
         if (dot) { dot.classList.remove('active','done'); if (i < n) dot.classList.add('done'); else if (i === n) dot.classList.add('active'); }
@@ -371,13 +468,14 @@ function alignStartStep2() {
     alignState.selectingModel = id1; alignState.phase = 'base';
     alignState.points1 = []; alignState.points2 = [];
     alignState.markers = []; alignState.mode = 'points'; alignState.hiddenModels = [];
-    document.getElementById('alignPhaseLabelBase').textContent = `לחץ על "${m1.name}" (בסיס)`;
     applyIsolation(id1, id2);
     m2.group.visible = false;
     tintAlignModels(id1, id2);
+    setAlignMode('points');
     document.getElementById('canvas-container').classList.add('align-mode');
     alignSetStep(2);
     showAlignBanner(m1.name, m2.name);
+    syncAlignModelPreview();
     updateAlignCounters();
 }
 
@@ -428,7 +526,11 @@ function restoreTint() {
 
 function showAlignBanner(name1, name2) {
     const banner = document.getElementById('alignIsolationBanner');
-    banner.textContent = `🎯 יישור: 🔒 ${name1} ← ➡️ ${name2}`;
+    banner.textContent = formatAlignUiText(
+        'alignBannerText',
+        'Alignment: {base} <- {target}',
+        { base: name1, target: name2 }
+    );
     banner.classList.add('visible');
 }
 
@@ -436,10 +538,12 @@ function hideAlignBanner() { document.getElementById('alignIsolationBanner').cla
 
 function setAlignMode(mode) {
     alignState.mode = mode;
-    document.getElementById('tabPoints').classList.toggle('active', mode === 'points');
-    if (alignState.phase === 'base') {
-        document.getElementById('subpanelPoints').classList.toggle('active', mode === 'points');
-    }
+    const tabPoints = document.getElementById('tabPoints');
+    const basePanel = document.getElementById('subpanelPoints');
+    const targetPanel = document.getElementById('subpanelPointsTarget');
+    if (tabPoints) tabPoints.classList.toggle('active', mode === 'points');
+    if (basePanel) basePanel.classList.toggle('active', mode === 'points' && alignState.phase === 'base');
+    if (targetPanel) targetPanel.classList.toggle('active', mode === 'points' && alignState.phase === 'target');
     if (mode === 'points') {
         document.getElementById('canvas-container').classList.add('align-mode');
         document.getElementById('canvas-container').classList.remove('move-mode');
@@ -456,16 +560,13 @@ function alignGoToStep3() {
     alignState.selectingModel = alignState.model2;
     const m1 = models.find(m => m.id === alignState.model1);
     const m2 = models.find(m => m.id === alignState.model2);
-    document.getElementById('alignPhaseLabelTarget').textContent =
-        alignState.mode === 'points'
-            ? `לחץ על "${m2?m2.name:'מטרה'}" לסימון ${alignState.points1.length} נקודות`
-            : `הזז את "${m2?m2.name:'מטרה'}" למיקום הרצוי`;
-    document.getElementById('subpanelPointsTarget').classList.toggle('active', alignState.mode === 'points');
+    setAlignMode('points');
     if (m1) m1.group.visible = false;
     if (m2) m2.group.visible = true;
     document.getElementById('requiredPointsLabel').textContent = alignState.points1.length;
     document.getElementById('btnExecuteAlign').disabled = true;
     alignSetStep(3);
+    syncAlignModelPreview();
     updateAlignCounters();
 }
 
@@ -476,20 +577,48 @@ function alignBackToStep2() {
     const m2 = models.find(m => m.id === alignState.model2);
     if (m1) m1.group.visible = true;
     if (m2) m2.group.visible = false;
+    setAlignMode('points');
     document.getElementById('canvas-container').classList.add('align-mode');
     alignSetStep(2);
+    syncAlignModelPreview();
     updateAlignCounters();
 }
 
 function updateAlignCounters() {
+    const requiredPoints = getCurrentAlignRequirement();
     const c1 = document.getElementById('base1Counter');
     const c2 = document.getElementById('targetCounter');
     if (c1) { c1.textContent = alignState.points1.length; c1.classList.toggle('has-points', alignState.points1.length > 0); }
     if (c2) { c2.textContent = alignState.points2.length; c2.classList.toggle('has-points', alignState.points2.length > 0); }
+    const baseGoal = document.getElementById('alignBaseCounterGoal');
+    const targetGoal = document.getElementById('alignTargetCounterGoal');
+    if (baseGoal) baseGoal.textContent = requiredPoints;
+    if (targetGoal) targetGoal.textContent = requiredPoints;
+    const requiredSummary = document.getElementById('alignRequiredSummary');
+    if (requiredSummary) requiredSummary.textContent = requiredPoints;
+    const requiredLabel = document.getElementById('requiredPointsLabel');
+    if (requiredLabel) requiredLabel.textContent = requiredPoints;
+    const baseMeta = document.getElementById('alignSummaryBaseMeta');
+    const targetMeta = document.getElementById('alignSummaryTargetMeta');
+    if (baseMeta) baseMeta.textContent = `${alignState.points1.length} / ${requiredPoints}`;
+    if (targetMeta) targetMeta.textContent = `${alignState.points2.length} / ${requiredPoints}`;
+    const baseProgress = document.getElementById('alignBaseProgress');
+    const targetProgress = document.getElementById('alignTargetProgress');
+    if (baseProgress) baseProgress.style.width = `${Math.min(100, (alignState.points1.length / requiredPoints) * 100)}%`;
+    if (targetProgress) targetProgress.style.width = `${Math.min(100, (alignState.points2.length / requiredPoints) * 100)}%`;
+    const baseProgressLabel = document.getElementById('alignBaseProgressLabel');
+    const targetProgressLabel = document.getElementById('alignTargetProgressLabel');
+    if (baseProgressLabel) baseProgressLabel.textContent = `${alignState.points1.length} / ${requiredPoints}`;
+    if (targetProgressLabel) targetProgressLabel.textContent = `${alignState.points2.length} / ${requiredPoints}`;
+    renderAlignPointTokens('alignBasePointsList', alignState.points1.length, requiredPoints, 'base');
+    renderAlignPointTokens('alignReferencePointsList', alignState.points1.length, requiredPoints, 'reference');
+    renderAlignPointTokens('alignTargetPointsList', alignState.points2.length, requiredPoints, 'target');
     const btnToStep3 = document.getElementById('btnToStep3');
     if (btnToStep3) btnToStep3.disabled = alignState.points1.length < alignState.minPoints;
     const btnExec = document.getElementById('btnExecuteAlign');
     if (btnExec) btnExec.disabled = alignState.points2.length < alignState.minPoints || alignState.points2.length < alignState.points1.length;
+    updateAlignPhaseLabels();
+    updateAlignOverviewStatus(getAlignSelectValue('alignModel1Select'), getAlignSelectValue('alignModel2Select'));
 }
 
 function selectAlignmentPoint(screenX, screenY) {

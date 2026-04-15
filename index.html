@@ -68,79 +68,172 @@
                         <div id="sidebarContentAlign" class="sidebar-content">
                             <div id="alignSection">
                                 <div class="align-panel-header">
-                                    <div class="align-panel-title">
-                                        <span class="title-icon">🎯</span>
-                                        <span data-i18n="modelAlignment">Model Alignment</span>
+                                    <div class="align-panel-headings">
+                                        <div class="align-panel-title-row">
+                                            <div class="align-panel-title">
+                                                <span class="title-icon">🎯</span>
+                                                <span data-i18n="modelAlignment">Model Alignment</span>
+                                            </div>
+                                            <div class="align-panel-badge">3+</div>
+                                        </div>
+                                        <p class="align-panel-subtitle" data-i18n="alignPanelSubtitle">Choose a base model, mark matching points in order, and align with confidence.</p>
                                     </div>
                                 </div>
+
+                                <div class="align-overview-strip">
+                                    <div class="align-overview-card align-overview-card-base">
+                                        <span class="align-overview-label" data-i18n="baseModel">Base Model</span>
+                                        <strong class="align-overview-name" id="alignSummaryBase">-</strong>
+                                        <span class="align-overview-meta" id="alignSummaryBaseMeta">0 / 3</span>
+                                    </div>
+                                    <div class="align-overview-center">
+                                        <span class="align-overview-kicker" data-i18n="alignNeedAtLeast">Need at least</span>
+                                        <strong class="align-overview-required"><span id="alignRequiredSummary">3</span> <span data-i18n="points">Points</span></strong>
+                                        <span class="align-overview-status" id="alignSummaryStatus" data-i18n="alignReadyState">Select two different models to begin</span>
+                                    </div>
+                                    <div class="align-overview-card align-overview-card-target">
+                                        <span class="align-overview-label" data-i18n="targetModel">Target Model</span>
+                                        <strong class="align-overview-name" id="alignSummaryTarget">-</strong>
+                                        <span class="align-overview-meta" id="alignSummaryTargetMeta">0 / 3</span>
+                                    </div>
+                                </div>
+
                                 <div class="align-steps-track">
-                                    <div class="align-step-dot active" id="stepDot1">
+                                    <div class="align-step-card active" id="stepDot1">
                                         <div class="step-circle">1</div>
-                                        <div class="step-label" data-i18n="pickModels">Pick Models</div>
+                                        <div class="step-copy">
+                                            <div class="step-label" data-i18n="pickModels">Pick Models</div>
+                                            <div class="step-caption" data-i18n="alignStepSelectTitle">Choose base and target</div>
+                                        </div>
                                     </div>
-                                    <div class="align-step-dot" id="stepDot2">
+                                    <div class="align-step-card" id="stepDot2">
                                         <div class="step-circle">2</div>
-                                        <div class="step-label" data-i18n="basePoints">Base Points</div>
+                                        <div class="step-copy">
+                                            <div class="step-label" data-i18n="basePoints">Base Points</div>
+                                            <div class="step-caption" data-i18n="alignStepBaseTitle">Set the reference order</div>
+                                        </div>
                                     </div>
-                                    <div class="align-step-dot" id="stepDot3">
+                                    <div class="align-step-card" id="stepDot3">
                                         <div class="step-circle">3</div>
-                                        <div class="step-label" data-i18n="targetPoints">Target Points</div>
+                                        <div class="step-copy">
+                                            <div class="step-label" data-i18n="targetPoints">Target Points</div>
+                                            <div class="step-caption" data-i18n="alignStepTargetTitle">Match the same order</div>
+                                        </div>
                                     </div>
                                 </div>
+
                                 <div class="align-panel-body">
-                                    <!-- Step 1: Pick models -->
                                     <div id="alignPage1" class="align-step-page active">
-                                        <div class="align-model-selector">
-                                            <div class="align-model-selector-label label-base" data-i18n="baseModel">🔒 Base Model</div>
-                                            <select id="alignModel1Select" class="align-model-select"></select>
+                                        <div class="align-stage-card align-stage-card-intro">
+                                            <span class="align-stage-badge" data-i18n="pickModels">Pick Models</span>
+                                            <h4 data-i18n="alignPickTitle">Choose what stays fixed and what moves</h4>
+                                            <p class="align-stage-copy" data-i18n="alignPickHint">The base model stays in place. The target model will move to match your numbered points.</p>
                                         </div>
-                                        <div class="align-model-selector">
-                                            <div class="align-model-selector-label label-target" data-i18n="targetModel">🎯 Target Model</div>
-                                            <select id="alignModel2Select" class="align-model-select"></select>
+
+                                        <div class="align-model-grid">
+                                            <label class="align-model-card align-model-card-base">
+                                                <span class="align-model-selector-label label-base" data-i18n="baseModel">Base Model</span>
+                                                <select id="alignModel1Select" class="align-model-select" onchange="syncAlignModelPreview()"></select>
+                                                <span class="align-model-card-hint" data-i18n="alignBaseCardHint">This model stays fixed.</span>
+                                            </label>
+                                            <label class="align-model-card align-model-card-target">
+                                                <span class="align-model-selector-label label-target" data-i18n="targetModel">Target Model</span>
+                                                <select id="alignModel2Select" class="align-model-select" onchange="syncAlignModelPreview()"></select>
+                                                <span class="align-model-card-hint" data-i18n="alignTargetCardHint">This model will move into place.</span>
+                                            </label>
                                         </div>
-                                        <label style="display:flex;align-items:center;gap:6px;font-size:0.78em;color:rgba(255,255,255,0.5);margin-bottom:12px;">
-                                            <input type="checkbox" id="alignIsolationToggle" checked> <span data-i18n="hideOtherModels">Hide other models</span>
-                                        </label>
-                                        <div class="align-mode-tabs">
-                                            <button id="tabPoints" class="align-mode-tab active" onclick="setAlignMode('points')" data-i18n="points">📍 Points</button>
+
+                                        <div class="align-config-grid">
+                                            <div class="align-info-card">
+                                                <button id="tabPoints" class="align-mode-tab active" onclick="setAlignMode('points')" data-i18n="points">📍 Points</button>
+                                                <span class="align-info-copy" data-i18n="alignUseSameOrder">Use the same numbered order on both models.</span>
+                                            </div>
+
+                                            <label class="align-toggle-card" for="alignIsolationToggle">
+                                                <div class="align-toggle-copy">
+                                                    <span class="align-toggle-title" data-i18n="hideOtherModels">Hide other models</span>
+                                                    <span class="align-toggle-hint" data-i18n="alignIsolateHint">Keep only the two alignment models visible while marking points.</span>
+                                                </div>
+                                                <span class="toggle-switch">
+                                                    <input type="checkbox" id="alignIsolationToggle" checked>
+                                                    <span class="toggle-track"></span>
+                                                </span>
+                                            </label>
                                         </div>
+
                                         <div class="align-actions-row">
-                                            <button class="align-btn-primary" onclick="alignStartStep2()" data-i18n="next">Next →</button>
+                                            <button class="align-btn-primary" onclick="alignStartStep2()" data-i18n="alignStartCta">Start marking points</button>
                                         </div>
                                     </div>
 
-                                    <!-- Step 2: Mark base points -->
                                     <div id="alignPage2" class="align-step-page">
                                         <div id="subpanelPoints" class="align-subpanel active">
-                                            <div class="align-phase-badge phase-badge-base">
-                                                <div class="phase-badge-dot"></div>
-                                                <span id="alignPhaseLabelBase" data-i18n="clickOnBaseModel">Click on base model</span>
+                                            <div class="align-stage-card align-stage-card-base">
+                                                <div class="align-stage-topline">
+                                                    <div class="align-phase-badge phase-badge-base">
+                                                        <div class="phase-badge-dot"></div>
+                                                        <span data-i18n="basePoints">Base Points</span>
+                                                    </div>
+                                                    <div class="align-stage-counter"><span id="base1Counter">0</span><span class="align-stage-counter-sep">/</span><span id="alignBaseCounterGoal">3</span></div>
+                                                </div>
+                                                <h4 class="align-phase-title" id="alignPhaseLabelBase" data-i18n="clickOnBaseModel">Click on base model</h4>
+                                                <div class="align-hint" data-i18n="clickPointsOnBaseModel">Click points on the base model (🟠). Need at least 3 points.</div>
+                                                <div class="align-progress-bar">
+                                                    <div class="align-progress-fill" id="alignBaseProgress"></div>
+                                                </div>
+                                                <div class="align-progress-caption" id="alignBaseProgressLabel">0 / 3</div>
                                             </div>
-                                            <div class="align-hint" data-i18n="clickPointsOnBaseModel">Click points on the base model (🟠). Need at least 3 points.</div>
-                                            <div class="align-counter-row">
-                                                <span class="align-counter-label" data-i18n="pointsMarked">Points marked</span>
-                                                <span class="align-counter-value" id="base1Counter">0</span>
+
+                                            <div class="align-point-board">
+                                                <div class="align-point-board-header">
+                                                    <span data-i18n="alignSequenceTitle">Point order</span>
+                                                    <span class="align-point-board-note" data-i18n="alignSequenceHint">Use the same numbered order on both models.</span>
+                                                </div>
+                                                <div id="alignBasePointsList" class="align-point-list align-point-list-base"></div>
                                             </div>
+
                                             <div class="align-actions-row">
                                                 <button class="align-btn-undo" onclick="undoLastPoint()" data-i18n="undo">↩</button>
                                                 <button id="btnToStep3" class="align-btn-primary" disabled onclick="alignGoToStep3()" data-i18n="next">Next →</button>
                                             </div>
                                         </div>
-
                                     </div>
 
-                                    <!-- Step 3: Mark target points -->
                                     <div id="alignPage3" class="align-step-page">
                                         <div id="subpanelPointsTarget" class="align-subpanel active">
-                                            <div class="align-phase-badge phase-badge-target">
-                                                <div class="phase-badge-dot"></div>
-                                                <span id="alignPhaseLabelTarget" data-i18n="clickOnTargetModel">Click on target model</span>
+                                            <div class="align-stage-card align-stage-card-target">
+                                                <div class="align-stage-topline">
+                                                    <div class="align-phase-badge phase-badge-target">
+                                                        <div class="phase-badge-dot"></div>
+                                                        <span data-i18n="targetPoints">Target Points</span>
+                                                    </div>
+                                                    <div class="align-stage-counter"><span id="targetCounter">0</span><span class="align-stage-counter-sep">/</span><span id="alignTargetCounterGoal">3</span></div>
+                                                </div>
+                                                <h4 class="align-phase-title" id="alignPhaseLabelTarget" data-i18n="clickOnTargetModel">Click on target model</h4>
+                                                <div class="align-hint" data-i18n="markMatchingPoints">Mark <span id="requiredPointsLabel">3</span> matching points on the target (🔵).</div>
+                                                <div class="align-progress-bar">
+                                                    <div class="align-progress-fill" id="alignTargetProgress"></div>
+                                                </div>
+                                                <div class="align-progress-caption" id="alignTargetProgressLabel">0 / 3</div>
                                             </div>
-                                            <div class="align-hint" data-i18n="markMatchingPoints">Mark <span id="requiredPointsLabel">3</span> matching points on the target (🔵).</div>
-                                            <div class="align-counter-row">
-                                                <span class="align-counter-label" data-i18n="pointsMarked">Points marked</span>
-                                                <span class="align-counter-value" id="targetCounter">0</span>
+
+                                            <div class="align-reference-board">
+                                                <div class="align-board-column">
+                                                    <div class="align-point-board-header">
+                                                        <span data-i18n="alignReferencePoints">Reference order</span>
+                                                        <span class="align-point-board-note" data-i18n="basePoints">Base Points</span>
+                                                    </div>
+                                                    <div id="alignReferencePointsList" class="align-point-list align-point-list-reference"></div>
+                                                </div>
+                                                <div class="align-board-column">
+                                                    <div class="align-point-board-header">
+                                                        <span data-i18n="alignMatchingProgress">Matching progress</span>
+                                                        <span class="align-point-board-note" data-i18n="alignSequenceHint">Use the same numbered order on both models.</span>
+                                                    </div>
+                                                    <div id="alignTargetPointsList" class="align-point-list align-point-list-target"></div>
+                                                </div>
                                             </div>
+
                                             <div class="align-actions-row">
                                                 <button class="align-btn-undo" onclick="undoLastPoint()" data-i18n="undo">↩</button>
                                                 <button id="btnExecuteAlign" class="align-btn-primary" disabled onclick="executeAlignment()" data-i18n="align">✓ Align</button>
@@ -149,7 +242,6 @@
                                                 <button class="align-btn-secondary" onclick="alignBackToStep2()" data-i18n="back">← Back</button>
                                             </div>
                                         </div>
-
                                     </div>
 
                                     <button class="align-btn-cancel" id="sidebarBtnCancelAlign" onclick="cancelAlignment()" data-i18n="cancelAlignment">✕ Cancel Alignment</button>
